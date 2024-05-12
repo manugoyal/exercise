@@ -4,16 +4,28 @@ import "./index.css";
 import App from "./App";
 import reportWebVitals from "./reportWebVitals";
 
-import { ErrorContext, ErrorContextT } from "./errorContext";
+import { ErrorContext, ErrorContextT, ErrorDisplay } from "./errorContext";
 
 function TopLevelComponent() {
   const [error, setError] = React.useState<unknown | undefined>(undefined);
   const errorContextValue: ErrorContextT = { error, setError };
+
+  const appElem = (() => {
+    try {
+      return (
+        <ErrorContext.Provider value={errorContextValue}>
+          <App />
+        </ErrorContext.Provider>
+      );
+    } catch (err) {
+      setError(err);
+      return undefined;
+    }
+  })();
+
   return (
     <React.StrictMode>
-      <ErrorContext.Provider value={errorContextValue}>
-        <App />
-      </ErrorContext.Provider>
+      {error ? <ErrorDisplay error={error} /> : appElem}
     </React.StrictMode>
   );
 }

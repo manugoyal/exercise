@@ -2,16 +2,16 @@ import { useContext, useEffect, useState } from "react";
 import { z } from "zod";
 
 import { useMakeConnection } from "./connection";
-import { ErrorContext, ErrorDisplay, wrapAsyncError } from "./errorContext";
+import { ErrorContext, wrapAsync } from "./errorContext";
 
 function App() {
-  const { error, setError } = useContext(ErrorContext);
-
   const { connection, loginForm } = useMakeConnection();
+  const { setError } = useContext(ErrorContext);
 
   const [userId, setUserId] = useState<string | undefined>(undefined);
+
   useEffect(() => {
-    const fetchUserId = wrapAsyncError(async () => {
+    async function fetchUserId() {
       if (!connection) return;
       const res = z.string().parse(
         await connection.runRpc("lookup_user_id", {
@@ -19,13 +19,9 @@ function App() {
         }),
       );
       setUserId(res);
-    }, setError);
-    fetchUserId();
+    }
+    wrapAsync(fetchUserId, setError)();
   }, [connection, setError]);
-
-  if (error !== undefined) {
-    return <ErrorDisplay error={error} />;
-  }
 
   if (connection === undefined) {
     return <dialog open>{loginForm}</dialog>;

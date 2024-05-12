@@ -1,18 +1,16 @@
-import { useContext, useState } from "react";
+import { useState } from "react";
 import { SupabaseClient, createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
-import { ErrorContext, wrapAsyncError } from "./errorContext";
+import { useWrapAsync } from "./errorContext";
 
 export type ConnectionState = {
   client: SupabaseClient;
   auth_id: string;
-  runRpc: (fn: string, args?: any) => Promise<any>;
+  runRpc: (fn: string, args?: unknown) => Promise<unknown>;
 };
 
 export function useMakeConnection() {
-  const { setError } = useContext(ErrorContext);
-
   const [connection, setConnection] = useState<ConnectionState | undefined>(
     undefined,
   );
@@ -26,40 +24,37 @@ export function useMakeConnection() {
   const [username, setUsername] = useState<string>("");
   const [password, setPassword] = useState<string>("");
 
-  const handleSubmit = wrapAsyncError(async (e: any) => {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!(supabaseUrl && supabaseKey && username && password)) {
       throw new Error("All fields must be filled");
     }
 
     const client = createClient(supabaseUrl, supabaseKey);
-    const runRpc = wrapAsyncError(async (fn: string, args?: any) => {
+    const runRpc = async (fn: string, args?: unknown) => {
       const { data, error } = await client.rpc(fn, args);
       if (error) {
         throw new Error(JSON.stringify(error));
       }
       return data;
-    }, setError);
-    const auth_id = z
-      .string()
-      .nullish()
-      .parse(
-        await runRpc("lookup_auth_id", {
-          _name: username,
-          _password: password,
-        }),
-      );
+    };
+    const auth_id = z.string().parse(
+      await runRpc("lookup_auth_id", {
+        _name: username,
+        _password: password,
+      }),
+    );
     if (auth_id) {
       setConnection({ client, auth_id, runRpc });
     }
-  }, setError);
+  }
 
-  function eventSetter(setter: any) {
-    return (e: any) => setter(e.target.value);
+  function eventSetter(setter: (x: string) => void) {
+    return (e: React.ChangeEvent<HTMLInputElement>) => setter(e.target.value);
   }
 
   const loginForm = (
-    <form onSubmit={handleSubmit}>
+    <form onSubmit={useWrapAsync(handleSubmit)}>
       <label>
         Supabase URL:
         <input
