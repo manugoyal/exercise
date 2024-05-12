@@ -8,13 +8,19 @@ export default [
     languageOptions: {
       globals: globals.browser,
     },
+  },
+  pluginJs.configs.recommended,
+  ...tseslint.configs.recommended,
+  pluginReactConfig,
+  {
     settings: {
       react: {
         version: "detect",
       },
     },
+    rules: {
+      "react/react-in-jsx-scope": "off",
+      "@typescript-eslint/no-explicit-any": "off",
+    },
   },
-  pluginJs.configs.recommended,
-  ...tseslint.configs.recommended,
-  pluginReactConfig,
 ];

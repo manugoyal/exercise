@@ -429,10 +429,14 @@ async function populateDb(sql: postgres.TransactionSql) {
   `;
 
   tableNumRows.forEach((res) => {
-    if (res.num_rows !== 0) {
+    if (Number(res.num_rows) !== 0) {
       throw new Error(`Table ${res.tbl} is not empty`);
     }
   });
+
+  await sql`
+    select register_user(_name => ${"manu"}, _password => ${"dogbreath"})
+  `;
 
   const idNameSchema = z.object({ id: z.string(), name: z.string() });
 

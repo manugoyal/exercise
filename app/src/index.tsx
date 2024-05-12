@@ -4,14 +4,24 @@ import "./index.css";
 import App from "./App";
 import reportWebVitals from "./reportWebVitals";
 
+import { ErrorContext, ErrorContextT } from "./errorContext";
+
+function TopLevelComponent() {
+  const [error, setError] = React.useState<unknown | undefined>(undefined);
+  const errorContextValue: ErrorContextT = { error, setError };
+  return (
+    <React.StrictMode>
+      <ErrorContext.Provider value={errorContextValue}>
+        <App />
+      </ErrorContext.Provider>
+    </React.StrictMode>
+  );
+}
+
 const root = ReactDOM.createRoot(
   document.getElementById("root") as HTMLElement,
 );
-root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
-);
+root.render(<TopLevelComponent />);
 
 // If you want to start measuring performance in your app, pass a function
 // to log results (for example: reportWebVitals(console.log))
