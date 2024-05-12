@@ -7,6 +7,7 @@ import {
   CreateExercise,
   CreateVariant,
   CreateWorkout,
+  CreateWorkoutCycle,
 } from "./create_typedefs";
 import { LOCAL_DB_URL } from "./constants";
 import { mapAt } from "./util";
@@ -332,6 +333,96 @@ const workouts: CreateWorkout[] = [
       },
     ],
   },
+  {
+    name: "stretch it out",
+    sets: [
+      {
+        name: "part 1",
+        reps: 1,
+        transition_time: 5,
+        exercises: [
+          {
+            exercise_name: "lower back stretch",
+            variant_name: "left side",
+            limit_type: "time",
+            limit_value: 30,
+          },
+          {
+            exercise_name: "lower back stretch",
+            variant_name: "right side",
+            limit_type: "time",
+            limit_value: 30,
+          },
+          {
+            exercise_name: "crossbody lat stretch",
+            variant_name: "left side",
+            limit_type: "time",
+            limit_value: 30,
+          },
+          {
+            exercise_name: "crossbody lat stretch",
+            variant_name: "right side",
+            limit_type: "time",
+            limit_value: 30,
+          },
+          {
+            exercise_name: "recover",
+            limit_type: "time",
+            limit_value: 15,
+          },
+        ],
+      },
+      {
+        name: "part 2",
+        reps: 1,
+        transition_time: 5,
+        exercises: [
+          {
+            exercise_name: "lateral hip openers",
+            limit_type: "time",
+            limit_value: 30,
+          },
+          {
+            exercise_name: "airplanes",
+            variant_name: "left side",
+            limit_type: "time",
+            limit_value: 30,
+          },
+          {
+            exercise_name: "airplanes",
+            variant_name: "right side",
+            limit_type: "time",
+            limit_value: 30,
+          },
+        ],
+      },
+    ],
+  },
+];
+
+const workoutCycles: CreateWorkoutCycle[] = [
+  {
+    name: "default",
+    description: "Your weekday grind",
+    user_name: "manu",
+    entries: [
+      {
+        workout_def_name: "upper-body push",
+      },
+      {
+        workout_def_name: "lower-body",
+      },
+    ],
+  },
+  {
+    name: "nightly stretch",
+    user_name: "manu",
+    entries: [
+      {
+        workout_def_name: "stretch it out",
+      },
+    ],
+  },
 ];
 
 const sql = postgres(LOCAL_DB_URL, {
@@ -415,6 +506,53 @@ async function populateWorkout({
           "limit_value",
         )}
     `;
+
+  return workoutDefId;
+}
+
+async function populateWorkoutCycle({
+  sql,
+  userNameToId,
+  workoutDefNameToId,
+  workoutCycle,
+}: {
+  sql: postgres.TransactionSql;
+  userNameToId: Map<string, string>;
+  workoutDefNameToId: Map<string, string>;
+  workoutCycle: CreateWorkoutCycle;
+}) {
+  const augmentedCycle = {
+    ...workoutCycle,
+    user_id: mapAt(userNameToId, workoutCycle.user_name),
+  };
+
+  const workoutCycleId = z.string().parse(
+    (
+      await sql`
+        insert into workout_cycles ${sql(
+          augmentedCycle,
+          "name",
+          "description",
+          "user_id",
+        )} returning id
+    `
+    )[0].id,
+  );
+
+  const augmentedEntries = workoutCycle.entries.map((entry, idx) => ({
+    workout_cycle_id: workoutCycleId,
+    workout_def_id: mapAt(workoutDefNameToId, entry.workout_def_name),
+    ordinal: idx,
+  }));
+
+  await sql`
+        insert into workout_cycle_entries ${sql(
+          augmentedEntries,
+          "workout_cycle_id",
+          "workout_def_id",
+          "ordinal",
+        )}
+    `;
 }
 
 async function populateDb(sql: postgres.TransactionSql) {
@@ -434,9 +572,15 @@ async function populateDb(sql: postgres.TransactionSql) {
     }
   });
 
-  await sql`
-    select register_user(_name => ${"manu"}, _password => ${"dogbreath"})
-  `;
+  const userName = "manu";
+  const userId = z.string().parse(
+    (
+      await sql`
+    select register_user(_name => ${userName}, _password => ${"dogbreath"}) user_id
+  `
+    )[0].user_id,
+  );
+  const userNameToId = new Map<string, string>([[userName, userId]]);
 
   const idNameSchema = z.object({ id: z.string(), name: z.string() });
 
@@ -467,8 +611,24 @@ async function populateDb(sql: postgres.TransactionSql) {
       .map((x) => [x.name, x.id]),
   );
 
+  const workoutDefNameToId = new Map<string, string>();
   for (const workout of workouts) {
-    await populateWorkout({ sql, exerciseNameToId, variantNameToId, workout });
+    const workoutDefId = await populateWorkout({
+      sql,
+      exerciseNameToId,
+      variantNameToId,
+      workout,
+    });
+    workoutDefNameToId.set(workout.name, workoutDefId);
+  }
+
+  for (const workoutCycle of workoutCycles) {
+    await populateWorkoutCycle({
+      sql,
+      userNameToId,
+      workoutDefNameToId,
+      workoutCycle,
+    });
   }
 }
 

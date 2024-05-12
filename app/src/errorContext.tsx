@@ -10,11 +10,11 @@ export const ErrorContext = createContext<ErrorContextT>({
   setError: () => {},
 });
 
-export function ErrorDisplay({ error }: { error: { message: string } }) {
+export function ErrorDisplay({ error }: { error: unknown }) {
   return (
     <div role="alert">
       <p>Something went wrong:</p>
-      <pre>{error.message}</pre>
+      <pre>{`${error}`}</pre>
     </div>
   );
 }

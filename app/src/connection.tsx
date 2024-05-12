@@ -1,17 +1,23 @@
-import { useState } from "react";
+import { createContext, useState } from "react";
 import { SupabaseClient, createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
 import { useWrapAsync } from "./errorContext";
 
-export type ConnectionState = {
+export type Connection = {
   client: SupabaseClient;
   auth_id: string;
   runRpc: (fn: string, args?: unknown) => Promise<unknown>;
 };
 
+export const ConnectionContext = createContext<Connection>({
+  client: undefined as unknown as SupabaseClient,
+  auth_id: undefined as unknown as string,
+  runRpc: async () => {},
+});
+
 export function useMakeConnection() {
-  const [connection, setConnection] = useState<ConnectionState | undefined>(
+  const [connection, setConnection] = useState<Connection | undefined>(
     undefined,
   );
 
@@ -85,7 +91,7 @@ export function useMakeConnection() {
       <label>
         Password:
         <input
-          type="text"
+          type="password"
           value={password}
           onChange={eventSetter(setPassword)}
         />

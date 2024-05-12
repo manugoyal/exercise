@@ -34,6 +34,18 @@ export const createWorkoutDefSchema = z.object({
     .array(),
 });
 
+export const createWorkoutCycleSchema = z.object({
+  name: z.string(),
+  description: z.string().nullish(),
+  user_name: z.string(),
+  entries: z
+    .object({
+      workout_def_name: z.string(),
+    })
+    .array(),
+});
+
 export type CreateExercise = z.infer<typeof createExerciseSchema>;
 export type CreateVariant = z.infer<typeof createVariantSchema>;
 export type CreateWorkout = z.infer<typeof createWorkoutDefSchema>;
+export type CreateWorkoutCycle = z.infer<typeof createWorkoutCycleSchema>;

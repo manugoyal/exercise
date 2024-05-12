@@ -1,33 +1,31 @@
-import { useContext, useEffect, useState } from "react";
-import { z } from "zod";
+import { useState } from "react";
+import "./App.css";
 
-import { useMakeConnection } from "./connection";
-import { ErrorContext, wrapAsync } from "./errorContext";
+import { EntryPoint } from "./EntryPoint";
+import { ErrorContext, ErrorContextT, ErrorDisplay } from "./errorContext";
 
 function App() {
-  const { connection, loginForm } = useMakeConnection();
-  const { setError } = useContext(ErrorContext);
+  const [error, setError] = useState<unknown | undefined>(undefined);
+  const errorContextValue: ErrorContextT = { error, setError };
 
-  const [userId, setUserId] = useState<string | undefined>(undefined);
-
-  useEffect(() => {
-    async function fetchUserId() {
-      if (!connection) return;
-      const res = z.string().parse(
-        await connection.runRpc("lookup_user_id", {
-          _auth_id: connection.auth_id,
-        }),
+  const entryPoint = (() => {
+    try {
+      return (
+        <ErrorContext.Provider value={errorContextValue}>
+          <EntryPoint />
+        </ErrorContext.Provider>
       );
-      setUserId(res);
+    } catch (err) {
+      setError(err);
+      return <div> Impossible </div>;
     }
-    wrapAsync(fetchUserId, setError)();
-  }, [connection, setError]);
+  })();
 
-  if (connection === undefined) {
-    return <dialog open>{loginForm}</dialog>;
+  if (error) {
+    return <ErrorDisplay error={error} />;
+  } else {
+    return entryPoint;
   }
-
-  return <div> You are in, {userId}! </div>;
 }
 
 export default App;
