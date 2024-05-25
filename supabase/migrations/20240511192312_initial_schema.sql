@@ -7,7 +7,7 @@ create type exercise_limit_type as enum ('reps', 'time');
 create table users (
     id uuid not null primary key default gen_random_uuid(),
     name text not null,
-    password text not null,
+    password_hash text not null,
     auth_id uuid not null default gen_random_uuid()
 );
 
@@ -153,7 +153,7 @@ create unique index on workout_cycle_entries (workout_cycle_id, ordinal);
 
 -- Function definitions.
 
-create function register_user(
+create or replace function register_user(
     _name text,
     _password text
 )
@@ -164,7 +164,7 @@ as $$
 declare
     _user_id uuid;
 begin
-    insert into users (name, password)
+    insert into users (name, password_hash)
     values (_name, extensions.crypt(_password, extensions.gen_salt('bf')))
     returning id into _user_id;
 
@@ -189,13 +189,11 @@ begin
     from users
     where
         name = _name
-        and password = extensions.crypt(_password, password)
+        and password_hash = extensions.crypt(_password, password_hash)
     ;
-
     if not found then
         raise exception 'Username and password combination not found';
     end if;
-
     return _auth_id;
 end;
 $$;
@@ -220,8 +218,25 @@ begin
 end;
 $$;
 
--- See app/src/WorkoutCyclesPicker.tsx for schema.
-create or replace function get_workout_cycles(_auth_id uuid)
+-- Returns UserSchema.
+create or replace function get_user(_auth_id uuid)
+returns jsonb
+language plpgsql
+security definer set search_path = 'public'
+as $$
+declare
+    _user_id uuid := lookup_user_id(_auth_id);
+begin
+    return (
+        select jsonb_build_object('id', users.id, 'name', users.name)
+        from users
+        where id = _user_id
+    );
+end;
+$$;
+
+-- Returns WorkoutDefDenormalized.
+create or replace function get_workout_def(_auth_id uuid, _id uuid)
 returns jsonb
 language plpgsql
 security definer set search_path = 'public'
@@ -231,52 +246,133 @@ declare
 begin
 return (
     with
-    workout_cycles_and_entries as (
+    set_exercises as (
     select
-        workout_cycles.id workout_cycle_id,
-        workout_cycles.name workout_cycle_name,
-        workout_cycles.description workout_cycle_description,
-        workout_cycle_entries.ordinal workout_entry_ordinal,
-        workout_defs.id workout_def_id,
-        workout_defs.name workout_def_name,
-        workout_defs.description workout_def_description,
-        (
-            select workout_instances.finished
-            from workout_instances
-            where
-                workout_instances.workout_def_id = workout_cycle_entries.workout_def_id
-                and workout_instances.user_id = _user_id
-                and workout_instances.finished is not null
-            order by finished desc
-            limit 1
-        ) workout_entry_last_finished
+        workout_set_defs.id,
+        coalesce(jsonb_agg(
+            (
+                (to_jsonb(workout_set_exercise_defs) - ARRAY['workout_set_def_id', 'ordinal', 'exercise_id', 'variant_id']) ||
+                jsonb_build_object('exercise', to_jsonb(exercises), 'variant', to_jsonb(variants))
+            ) order by workout_set_exercise_defs.ordinal), '[]'::jsonb) exercises
     from
-        workout_cycles
-            join workout_cycle_entries on workout_cycles.id = workout_cycle_entries.workout_cycle_id
-            join workout_defs on workout_cycle_entries.workout_def_id = workout_defs.id
+        workout_set_defs
+            join workout_set_exercise_defs on workout_set_defs.id = workout_set_exercise_defs.workout_set_def_id
+            join exercises on exercises.id = workout_set_exercise_defs.exercise_id
+            left join variants on variants.id = workout_set_exercise_defs.variant_id
     where
-        workout_cycles.user_id = _user_id 
+        workout_set_defs.workout_def_id = _id
+    group by
+        workout_set_defs.id
     ),
-    grouped_cycles as (
+    sets as (
     select
-        workout_cycle_id,
-        workout_cycle_name,
-        workout_cycle_description,
-        jsonb_agg(jsonb_build_object(
-            'ordinal', workout_entry_ordinal,
-            'workout_def_id', workout_def_id,
-            'name', workout_def_name,
-            'description', workout_def_description,
-            'last_finished', workout_entry_last_finished)) workout_cycle_entries
-    from workout_cycles_and_entries
-    group by workout_cycle_id, workout_cycle_name, workout_cycle_description
+        coalesce(jsonb_agg(
+            (
+                (to_jsonb(workout_set_defs) - ARRAY['workout_def_id', 'ordinal'])
+                || jsonb_build_object('exercises', set_exercises.exercises)
+            ) order by workout_set_defs.ordinal), '[]'::jsonb) sets
+    from
+        workout_set_defs join set_exercises using (id)
     )
-    select jsonb_agg(jsonb_build_object(
-            'id', workout_cycle_id,
-            'name', workout_cycle_name,
-            'description', workout_cycle_description,
-            'entries', workout_cycle_entries))
-    from grouped_cycles
+    select to_jsonb(workout_defs) || jsonb_build_object('sets', sets)
+    from workout_defs join sets on true
+    where workout_defs.id = _id
 );
 end;
+$$;
+
+-- Returns WorkoutInstanceDenormalized.
+create or replace function get_workout_instance(_auth_id uuid, _id uuid)
+returns jsonb
+language plpgsql
+security definer set search_path = 'public'
+as $$
+declare
+    _user_id uuid := lookup_user_id(_auth_id);
+begin
+return (
+    with
+    exercise_instances as (
+    select
+        coalesce(jsonb_agg(
+            (to_jsonb(workout_set_exercise_instances) - ARRAY['workout_instance_id'])
+            order by workout_set_exercise_instances.created, workout_set_exercise_instances.id
+        ), '[]'::jsonb) vals
+    from workout_set_exercise_instances
+    where workout_set_exercise_instances.workout_instance_id = _id
+    )
+    select
+        (to_jsonb(workout_instances) - ARRAY['workout_def_id', 'user_id'])
+        || jsonb_build_object(
+            'workout_def', get_workout_def(_auth_id, workout_instances.workout_def_id),
+            'user', get_user(_auth_id),
+            'set_exercises', exercise_instances.vals)
+    from workout_instances join exercise_instances on true
+    where workout_instances.id = _id
+);
+end;
+$$;
+
+-- Returns WorkoutCycleDenormalized.
+create or replace function get_workout_cycle(_auth_id uuid, _id uuid)
+returns jsonb
+language plpgsql
+security definer set search_path = 'public'
+as $$
+declare
+    _user_id uuid := lookup_user_id(_auth_id);
+begin
+return (
+    with
+    cycle_entries as (
+    select
+        coalesce(jsonb_agg(
+            (
+                (to_jsonb(workout_cycle_entries) - ARRAY['workout_cycle_id', 'workout_def_id', 'ordinal']) ||
+                jsonb_build_object(
+                    'workout_def', get_workout_def(_auth_id, workout_cycle_entries.workout_def_id),
+                    'last_finished', (
+                        select workout_instances.finished
+                        from workout_instances
+                        where
+                            workout_instances.workout_def_id = workout_cycle_entries.workout_def_id
+                            and workout_instances.user_id = _user_id
+                            and workout_instances.finished is not null
+                        order by finished desc
+                        limit 1
+                    )
+                )
+            ) order by workout_cycle_entries.ordinal), '[]'::jsonb) vals
+    from
+        workout_cycle_entries where workout_cycle_id = _id
+    )
+    select
+        (to_jsonb(workout_cycles) - ARRAY['user_id']) ||
+        jsonb_build_object(
+            'user', get_user(_auth_id),
+            'entries', cycle_entries.vals
+        )
+    from workout_cycles join cycle_entries on true
+    where workout_cycles.id = _id
+);
+end;
+$$;
+
+-- Returns WorkoutCycleDenormalized[]
+create or replace function get_workout_cycles(_auth_id uuid)
+returns jsonb
+language plpgsql
+security definer set search_path = 'public'
+as $$
+declare
+    _user_id uuid := lookup_user_id(_auth_id);
+begin
+return (
+    select jsonb_agg(
+        get_workout_cycle(_auth_id, workout_cycles.id)
+        order by workout_cycles.created)
+    from workout_cycles
+    where user_id = _user_id
+);
+end
 $$;
