@@ -4,6 +4,7 @@ import { ConnectionContext, useMakeConnection } from "./connection";
 import { NavState, NavStateContext, NavStateContextT } from "./navState";
 import { PostLogin } from "./PostLogin";
 import { WorkoutCyclesPicker } from "./WorkoutCyclesPicker";
+import { WorkoutDefView } from "./WorkoutDefView";
 
 export function EntryPoint() {
   const { connection, loginForm } = useMakeConnection();
@@ -51,6 +52,8 @@ function EntryPointNav() {
     return <PostLogin />;
   } else if (navState.status === "pick_workout_cycle") {
     return <WorkoutCyclesPicker />;
+  } else if (navState.status === "view_workout_def") {
+    return <WorkoutDefView workoutDef={navState.data} />;
   } else {
     throw new Error(`Unknown NavState: ${JSON.stringify(navState)}`);
   }

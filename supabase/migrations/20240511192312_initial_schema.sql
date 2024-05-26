@@ -274,7 +274,19 @@ return (
     from
         workout_set_defs join set_exercises using (id)
     )
-    select to_jsonb(workout_defs) || jsonb_build_object('sets', sets)
+    select to_jsonb(workout_defs) || jsonb_build_object(
+        'sets', sets,
+        'last_finished', (
+            select workout_instances.finished
+            from workout_instances
+            where
+                workout_instances.workout_def_id = workout_defs.id
+                and workout_instances.user_id = _user_id
+                and workout_instances.finished is not null
+            order by finished desc
+            limit 1
+        )
+    )
     from workout_defs join sets on true
     where workout_defs.id = _id
 );

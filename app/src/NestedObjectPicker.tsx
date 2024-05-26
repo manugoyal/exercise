@@ -32,18 +32,19 @@ function displayNestedObject({
 }) {
   const currentPathKey = makePathKey(currentPath);
   const isExpanded = expandedPaths.get(currentPathKey) ?? false;
-  function onClick() {
-    if (nestedObject.kind === "node") {
-      const isExpanded = expandedPaths.get(currentPathKey) ?? false;
-      setExpandedPaths((x) => {
-        const newX = new Map(x);
-        newX.set(currentPathKey, !isExpanded);
-        return newX;
-      });
-    } else {
-      nestedObject.action?.();
-    }
-  }
+  const onClick =
+    nestedObject.kind === "node"
+      ? nestedObject.children.length > 0
+        ? () => {
+            const isExpanded = expandedPaths.get(currentPathKey) ?? false;
+            setExpandedPaths((x) => {
+              const newX = new Map(x);
+              newX.set(currentPathKey, !isExpanded);
+              return newX;
+            });
+          }
+        : undefined
+      : nestedObject.action;
   const buttonText =
     nestedObject.kind === "node" ? (isExpanded ? "Close" : "Open") : "Select";
   const subComponents =
@@ -67,14 +68,10 @@ function displayNestedObject({
   return (
     <div>
       <p style={elemStyle}>
-        {nestedObject.text} <button onClick={onClick}> {buttonText} </button>
+        {nestedObject.text}{" "}
+        {onClick && <button onClick={onClick}> {buttonText} </button>}
       </p>
-      {nestedObject.subtext ? (
-        <>
-          {" "}
-          <small> {nestedObject.subtext} </small>{" "}
-        </>
-      ) : null}
+      {nestedObject.subtext ? <small>{nestedObject.subtext}</small> : null}
       {subComponents}
     </div>
   );

@@ -36,6 +36,7 @@ export const workoutDefDenormalizedSchema = workoutDefSchema.merge(
         }),
       )
       .array(),
+    last_finished: datetimeSchema.nullish(),
   }),
 );
 export type WorkoutDefDenormalized = z.infer<
@@ -67,7 +68,6 @@ export const workoutCycleDenormalizedSchema = workoutCycleSchema
         .merge(
           z.object({
             workout_def: workoutDefDenormalizedSchema,
-            last_finished: datetimeSchema.nullish(),
           }),
         )
         .array(),

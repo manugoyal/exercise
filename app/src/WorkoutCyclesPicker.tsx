@@ -8,28 +8,33 @@ import {
 } from "./typespecs/denormalized_types";
 import { Loading } from "./Loading";
 import { NestedObject, NestedObjectPicker } from "./NestedObjectPicker";
+import { NavState, NavStateContext } from "./navState";
+import { lastFinishedText } from "./util";
 
 type WorkoutCycleDenormalizedEntry = WorkoutCycleDenormalized["entries"][0];
 
-function convertWorkoutCyclesToNestedObject(
-  workoutCycles: WorkoutCycleDenormalized[] | undefined,
-): NestedObject | undefined {
-  if (!workoutCycles) return undefined;
+function convertWorkoutCyclesToNestedObject({
+  workoutCycles,
+  pushNavState,
+}: {
+  workoutCycles: WorkoutCycleDenormalized[];
+  pushNavState: (x: NavState) => void;
+}): NestedObject {
   return {
     kind: "node",
     text: "Workout Cycles",
     children: workoutCycles.map((workoutCycle): NestedObject => {
       const entries = workoutCycle.entries;
       const lastFinishedEntries = workoutCycle.entries.reduce((acc, e) => {
-        if (e.last_finished) {
+        if (e.workout_def.last_finished) {
           return acc.concat({
-            ...e,
-            last_finished: e.last_finished,
+            entry: e,
+            last_finished: e.workout_def.last_finished,
           });
         } else {
           return acc;
         }
-      }, new Array<Omit<WorkoutCycleDenormalizedEntry, "last_finished"> & { last_finished: Date }>());
+      }, new Array<{ entry: WorkoutCycleDenormalizedEntry; last_finished: Date }>());
       lastFinishedEntries.sort(
         (lhs, rhs) => lhs.last_finished.getTime() - rhs.last_finished.getTime(),
       );
@@ -38,38 +43,37 @@ function convertWorkoutCyclesToNestedObject(
         : undefined;
       const latestLastFinishedIdx =
         latestLastFinishedEntry &&
-        entries.findIndex((e) => Object.is(e, latestLastFinishedEntry));
+        entries.findIndex((e) => e === latestLastFinishedEntry.entry);
       const highlightedIdx =
         latestLastFinishedIdx === undefined
           ? 0
           : (latestLastFinishedIdx + 1) % entries.length;
       const entryToLastFinished = new Map<WorkoutCycleDenormalizedEntry, Date>(
-        lastFinishedEntries.map((x) => [x, x.last_finished]),
+        lastFinishedEntries.map((x) => [x.entry, x.last_finished]),
       );
       return {
         kind: "node",
         text: workoutCycle.name,
         subtext: workoutCycle.description ?? undefined,
-        children: entries.map((entry, idx): NestedObject => {
-          const lastFinished = entryToLastFinished.get(entry);
-          const subtexts = [];
-          if (entry.workout_def.description) {
-            subtexts.push(entry.workout_def.description);
-          }
-          if (lastFinished) {
-            subtexts.push(`Last completed on ${lastFinished}`);
-          }
-          const subtext = subtexts.length ? subtexts.join("\n") : undefined;
-          return {
+        children: entries.map(
+          (entry, idx): NestedObject => ({
             kind: "leaf",
             text: entry.workout_def.name,
-            subtext,
+            subtext: [
+              entry.workout_def.description,
+              lastFinishedText(entryToLastFinished.get(entry)),
+            ]
+              .filter((x) => !!x)
+              .join("\n"),
             highlight: idx === highlightedIdx,
             action: () => {
-              console.log(`Clicked on workout ${entry.workout_def.name}`);
+              pushNavState({
+                status: "view_workout_def",
+                data: entry.workout_def,
+              });
             },
-          };
-        }),
+          }),
+        ),
       };
     }),
   };
@@ -78,6 +82,7 @@ function convertWorkoutCyclesToNestedObject(
 export function WorkoutCyclesPicker() {
   const connection = useContext(ConnectionContext);
   const { setError } = useContext(ErrorContext);
+  const { pushNavState } = useContext(NavStateContext);
 
   const [workoutCycles, setWorkoutCycles] = useState<
     WorkoutCycleDenormalized[] | undefined
@@ -100,8 +105,10 @@ export function WorkoutCyclesPicker() {
   });
 
   const workoutCyclesNestedObject = useMemo(
-    () => convertWorkoutCyclesToNestedObject(workoutCycles),
-    [workoutCycles],
+    () =>
+      workoutCycles &&
+      convertWorkoutCyclesToNestedObject({ workoutCycles, pushNavState }),
+    [workoutCycles, pushNavState],
   );
 
   if (!workoutCyclesNestedObject) {
