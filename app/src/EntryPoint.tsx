@@ -2,9 +2,11 @@ import { useCallback, useContext, useMemo, useState } from "react";
 
 import { ConnectionContext, useMakeConnection } from "./connection";
 import { NavState, NavStateContext, NavStateContextT } from "./navState";
+import { PastWorkoutInstancesPicker } from "./PastWorkoutInstancesPicker";
 import { PostLogin } from "./PostLogin";
 import { WorkoutCyclesPicker } from "./WorkoutCyclesPicker";
 import { WorkoutDefView } from "./WorkoutDefView";
+import { WorkoutInstanceView } from "./WorkoutInstanceView";
 
 export function EntryPoint() {
   const { connection, loginForm } = useMakeConnection();
@@ -23,8 +25,17 @@ export function EntryPoint() {
       }),
     [],
   );
+  const replaceNavState = useCallback(
+    (x: NavState) => setNavStateStack((s) => s.slice(0, -1).concat([x])),
+    [],
+  );
   const navStateContext = useMemo(
-    (): NavStateContextT => ({ navStateStack, pushNavState, popNavState }),
+    (): NavStateContextT => ({
+      navStateStack,
+      pushNavState,
+      popNavState,
+      replaceNavState,
+    }),
     [navStateStack, popNavState, pushNavState],
   );
 
@@ -52,8 +63,12 @@ function EntryPointNav() {
     return <PostLogin />;
   } else if (navState.status === "pick_workout_cycle") {
     return <WorkoutCyclesPicker />;
+  } else if (navState.status === "pick_past_workout_instances") {
+    return <PastWorkoutInstancesPicker />;
   } else if (navState.status === "view_workout_def") {
     return <WorkoutDefView workoutDef={navState.data} />;
+  } else if (navState.status === "view_workout_instance") {
+    return <WorkoutInstanceView workoutInstance={navState.data} />;
   } else {
     throw new Error(`Unknown NavState: ${JSON.stringify(navState)}`);
   }

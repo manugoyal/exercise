@@ -20,7 +20,7 @@
     "zod": "^3.23.8"
   },
   "scripts": {
-    "start": "tsx scripts/create_env_development.ts && react-scripts start",
+    "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"

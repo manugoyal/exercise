@@ -388,3 +388,220 @@ return (
 );
 end
 $$;
+
+-- Instantiate a new workout instance from a workout def. Fills out initial
+-- values for all exercises/reps. Returns the newly-created
+-- WorkoutInstanceDenormalized.
+create or replace function instantiate_workout(_auth_id uuid, _workout_def_id uuid)
+returns jsonb
+language plpgsql
+security definer set search_path = 'public'
+as $$
+declare
+    _user_id uuid := lookup_user_id(_auth_id);
+    _workout_instance_id uuid;
+begin
+-- Create the workout_instance entry.
+insert into workout_instances (workout_def_id, user_id)
+values (_workout_def_id, _user_id)
+returning id into _workout_instance_id;
+-- Initialize workout_set_exercise_instances entries for every (set, rep) in the
+-- workout.
+--
+-- Try to use the weights from the last matching workout instance. If
+-- unavailable, use weights from the last matching instance on the same
+-- (exercise_id, variant_id). If that too is unavailable, fill in an arbitrary
+-- value of 10.
+--
+-- Grab the limit values from the workout_set_exercise_defs themselves.
+with
+last_matching_workout_instance as (
+    select id from workout_instances
+    where
+        workout_def_id = _workout_def_id and user_id = _user_id
+        and finished is not null
+    order by finished desc
+    limit 1
+),
+last_matching_workout_set_exercise_instances as (
+    select workout_set_exercise_instances.*
+    from
+        workout_set_exercise_instances
+        join last_matching_workout_instance on (
+            workout_set_exercise_instances.workout_instance_id =
+                last_matching_workout_instance.id
+        )
+),
+last_matching_exercise_variant_instances as (
+    select distinct on (exercise_id, variant_id)
+        workout_set_exercise_defs.exercise_id,
+        workout_set_exercise_defs.variant_id,
+        workout_set_exercise_instances.weight
+    from
+        workout_set_exercise_instances
+        join workout_instances on (
+            workout_set_exercise_instances.workout_instance_id =
+                workout_instances.id
+        )
+        join workout_set_exercise_defs on (
+            workout_set_exercise_instances.workout_set_exercise_def_id =
+                workout_set_exercise_defs.id
+        )
+    where
+        workout_instances.user_id = _user_id
+        and workout_set_exercise_instances.finished is not null
+    order by
+        workout_set_exercise_defs.exercise_id,
+        workout_set_exercise_defs.variant_id,
+        workout_set_exercise_instances.finished desc
+),
+prefilled_instances as (
+    select
+        _workout_instance_id workout_instance_id,
+        workout_set_exercise_defs.id workout_set_exercise_def_id,
+        set_rep_value set_rep,
+        coalesce(
+            last_matching_workout_set_exercise_instances.weight,
+            last_matching_exercise_variant_instances.weight,
+            10
+        ) weight,
+        workout_set_exercise_defs.limit_value
+    from
+        workout_set_defs 
+        cross join generate_series(1, workout_set_defs.reps) set_rep_value
+        join workout_set_exercise_defs on (
+            workout_set_exercise_defs.workout_set_def_id =
+                workout_set_defs.id
+        )
+        left join last_matching_workout_set_exercise_instances on (
+            last_matching_workout_set_exercise_instances.workout_set_exercise_def_id =
+                workout_set_exercise_defs.id
+        )
+        left join last_matching_exercise_variant_instances on (
+            last_matching_exercise_variant_instances.exercise_id =
+                workout_set_exercise_defs.exercise_id
+            and last_matching_exercise_variant_instances.variant_id =
+                workout_set_exercise_defs.variant_id
+        )
+)
+insert into workout_set_exercise_instances (
+    workout_instance_id, workout_set_exercise_def_id, set_rep, weight,
+    limit_value)
+select * from prefilled_instances
+;
+-- Return the full, denormalized workout instance.
+return (select get_workout_instance(_auth_id, _workout_instance_id));
+end
+$$;
+
+-- Patch a workout_instance object. Does not support setting a value to null.
+create or replace function patch_workout_instance(
+    _auth_id uuid,
+    _workout_instance_id uuid,
+    _description text default null,
+    _started timestamp default null,
+    _finished timestamp default null
+)
+returns jsonb
+language plpgsql
+security definer set search_path = 'public'
+as $$
+declare
+    _user_id uuid := lookup_user_id(_auth_id);
+begin
+-- Make sure the workout instance exists and belongs to this user.
+perform 1 from workout_instances
+where id = _workout_instance_id and user_id = _user_id;
+if not found then
+    raise exception 'Workout instance does not exist or you do not have access';
+end if;
+-- Update the values of this row.
+update workout_instances
+set
+    description = coalesce(_description, description),
+    started = coalesce(_started, started),
+    finished = coalesce(_finished, finished)
+where id = _workout_instance_id
+;
+-- Return the full, denormalized workout instance.
+return (select get_workout_instance(_auth_id, _workout_instance_id));
+end
+$$;
+
+-- Patch a workout_set_exercise_instance object. Does not support setting a
+-- value to null.
+create or replace function patch_workout_set_exercise_instance(
+    _auth_id uuid,
+    _workout_set_exercise_instance_id uuid,
+    _description text default null,
+    _weight real default null,
+    _limit_value real default null,
+    _started timestamp default null,
+    _finished timestamp default null
+)
+returns jsonb
+language plpgsql
+security definer set search_path = 'public'
+as $$
+declare
+    _user_id uuid := lookup_user_id(_auth_id);
+    _workout_instance_id uuid;
+begin
+-- Make sure the workout set exercise instance exists and belongs to this user.
+select workout_instances.id into _workout_instance_id
+from
+    workout_set_exercise_instances
+    join workout_instances on (
+        workout_set_exercise_instances.workout_instance_id =
+            workout_instances.id
+    )
+where
+    workout_set_exercise_instances.id = _workout_set_exercise_instance_id
+    and workout_instances.user_id = _user_id
+;
+if not found then
+    raise exception 'Workout set exercise instance does not exist or you do not have access';
+end if;
+-- Update the values of this row.
+update workout_set_exercise_instances
+set
+    description = coalesce(_description, description),
+    weight = coalesce(_weight, weight),
+    limit_value = coalesce(_limit_value, limit_value),
+    started = coalesce(_started, started),
+    finished = coalesce(_finished, finished)
+where id = _workout_set_exercise_instance_id
+;
+-- Return the full, denormalized workout instance.
+return (select get_workout_instance(_auth_id, _workout_instance_id));
+end
+$$;
+
+-- Returns PastWorkoutInstance[].
+create or replace function get_past_workout_instances(_auth_id uuid, _limit integer)
+returns jsonb
+language plpgsql
+security definer set search_path = 'public'
+as $$
+declare
+    _user_id uuid := lookup_user_id(_auth_id);
+begin
+    return (
+        with rows_to_return as (
+            select
+                workout_instances.*,
+                workout_defs.name workout_def_name,
+                workout_defs.description workout_def_description
+            from
+                workout_instances
+                join workout_defs on (
+                    workout_instances.workout_def_id = workout_defs.id
+                )
+            where workout_instances.user_id = _user_id
+            order by workout_instances.created desc
+            limit _limit
+        )
+        select jsonb_agg(to_jsonb(rows_to_return)) from rows_to_return
+    );
+end
+$$;

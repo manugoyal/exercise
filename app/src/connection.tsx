@@ -2,8 +2,6 @@ import { createContext, useState } from "react";
 import { SupabaseClient, createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
-import { useWrapAsync } from "./errorContext";
-
 export type Connection = {
   client: SupabaseClient;
   auth_id: string;
@@ -22,21 +20,25 @@ export function useMakeConnection() {
   );
 
   const [supabaseUrl, setSupabaseUrl] = useState<string>(
-    process.env.REACT_APP_SUPABASE_URL || "",
-  );
-  const [supabaseKey, setSupabaseKey] = useState<string>(
-    process.env.REACT_APP_SUPABASE_ANON_KEY || "",
+    process.env.REACT_APP_SUPABASE_URL ??
+      `http://${window.location.hostname}:54321`,
   );
   const [username, setUsername] = useState<string>("");
   const [password, setPassword] = useState<string>("");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!(supabaseUrl && supabaseKey && username && password)) {
+    if (!(supabaseUrl && username && password)) {
       throw new Error("All fields must be filled");
     }
+    if (!process.env.REACT_APP_SUPABASE_ANON_KEY) {
+      throw new Error("App was not built with required env vars");
+    }
 
-    const client = createClient(supabaseUrl, supabaseKey);
+    const client = createClient(
+      supabaseUrl,
+      process.env.REACT_APP_SUPABASE_ANON_KEY,
+    );
     const runRpc = async (fn: string, args?: unknown) => {
       const { data, error } = await client.rpc(fn, args);
       if (error) {
@@ -60,22 +62,14 @@ export function useMakeConnection() {
   }
 
   const loginForm = (
-    <form onSubmit={useWrapAsync(handleSubmit)}>
+    <form onSubmit={handleSubmit}>
       <label>
         Supabase URL:
         <input
-          type="text"
+          type="url"
+          id="supabaseUrl"
           value={supabaseUrl}
           onChange={eventSetter(setSupabaseUrl)}
-        />
-      </label>
-      <br />
-      <label>
-        Supabase key:
-        <input
-          type="text"
-          value={supabaseKey}
-          onChange={eventSetter(setSupabaseKey)}
         />
       </label>
       <br />
@@ -83,6 +77,7 @@ export function useMakeConnection() {
         Username:
         <input
           type="text"
+          id="username"
           value={username}
           onChange={eventSetter(setUsername)}
         />
@@ -92,6 +87,7 @@ export function useMakeConnection() {
         Password:
         <input
           type="password"
+          id="password"
           value={password}
           onChange={eventSetter(setPassword)}
         />

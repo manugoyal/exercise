@@ -14,6 +14,15 @@ export function PostLogin() {
             Open a workout cycle
           </button>
         </li>
+        <li key="past_workout_instance">
+          <button
+            onClick={() =>
+              pushNavState({ status: "pick_past_workout_instances" })
+            }
+          >
+            Open a past workout instance
+          </button>
+        </li>
       </ul>
     </nav>
   );

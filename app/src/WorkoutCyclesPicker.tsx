@@ -1,7 +1,6 @@
 import { useContext, useEffect, useMemo, useState } from "react";
 
 import { ConnectionContext } from "./connection";
-import { ErrorContext, wrapAsync } from "./errorContext";
 import {
   WorkoutCycleDenormalized,
   workoutCycleDenormalizedSchema,
@@ -81,7 +80,6 @@ function convertWorkoutCyclesToNestedObject({
 
 export function WorkoutCyclesPicker() {
   const connection = useContext(ConnectionContext);
-  const { setError } = useContext(ErrorContext);
   const { pushNavState } = useContext(NavStateContext);
 
   const [workoutCycles, setWorkoutCycles] = useState<
@@ -101,7 +99,7 @@ export function WorkoutCyclesPicker() {
       );
       setWorkoutCycles(result);
     }
-    wrapAsync(getWorkoutCycles, setError)();
+    getWorkoutCycles();
   });
 
   const workoutCyclesNestedObject = useMemo(
