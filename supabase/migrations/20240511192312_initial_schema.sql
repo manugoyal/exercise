@@ -1,6 +1,6 @@
 -- Type definitions.
 
-create type exercise_limit_type as enum ('reps', 'time');
+create type exercise_limit_type as enum ('reps', 'time_s');
 
 -- Table definitions.
 
@@ -111,7 +111,7 @@ create table workout_set_exercise_instances (
     set_rep integer not null,
     check (set_rep >= 0),
 
-    weight real,
+    weight_lbs real,
     limit_value integer not null,
     started timestamp with time zone,
     finished timestamp with time zone,
@@ -410,8 +410,7 @@ returning id into _workout_instance_id;
 --
 -- Try to use the weights from the last matching workout instance. If
 -- unavailable, use weights from the last matching instance on the same
--- (exercise_id, variant_id). If that too is unavailable, fill in an arbitrary
--- value of 10.
+-- (exercise_id, variant_id). If that too is unavailable, leave it null.
 --
 -- Grab the limit values from the workout_set_exercise_defs themselves.
 with
@@ -436,7 +435,7 @@ last_matching_exercise_variant_instances as (
     select distinct on (exercise_id, variant_id)
         workout_set_exercise_defs.exercise_id,
         workout_set_exercise_defs.variant_id,
-        workout_set_exercise_instances.weight
+        workout_set_exercise_instances.weight_lbs
     from
         workout_set_exercise_instances
         join workout_instances on (
@@ -461,10 +460,9 @@ prefilled_instances as (
         workout_set_exercise_defs.id workout_set_exercise_def_id,
         set_rep_value set_rep,
         coalesce(
-            last_matching_workout_set_exercise_instances.weight,
-            last_matching_exercise_variant_instances.weight,
-            10
-        ) weight,
+            last_matching_workout_set_exercise_instances.weight_lbs,
+            last_matching_exercise_variant_instances.weight_lbs
+        ) weight_lbs,
         workout_set_exercise_defs.limit_value
     from
         workout_set_defs 
@@ -485,7 +483,7 @@ prefilled_instances as (
         )
 )
 insert into workout_set_exercise_instances (
-    workout_instance_id, workout_set_exercise_def_id, set_rep, weight,
+    workout_instance_id, workout_set_exercise_def_id, set_rep, weight_lbs,
     limit_value)
 select * from prefilled_instances
 ;
@@ -534,7 +532,7 @@ create or replace function patch_workout_set_exercise_instance(
     _auth_id uuid,
     _workout_set_exercise_instance_id uuid,
     _description text default null,
-    _weight real default null,
+    _weight_lbs real default null,
     _limit_value real default null,
     _started timestamp default null,
     _finished timestamp default null
@@ -566,7 +564,7 @@ end if;
 update workout_set_exercise_instances
 set
     description = coalesce(_description, description),
-    weight = coalesce(_weight, weight),
+    weight_lbs = coalesce(_weight_lbs, weight_lbs),
     limit_value = coalesce(_limit_value, limit_value),
     started = coalesce(_started, started),
     finished = coalesce(_finished, finished)
@@ -601,7 +599,7 @@ begin
             order by workout_instances.created desc
             limit _limit
         )
-        select jsonb_agg(to_jsonb(rows_to_return)) from rows_to_return
+        select coalesce(jsonb_agg(to_jsonb(rows_to_return)), '[]'::jsonb) from rows_to_return
     );
 end
 $$;

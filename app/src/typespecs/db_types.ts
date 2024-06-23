@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const exerciseLimitTypeSchema = z.enum(["reps", "time"]);
+export const exerciseLimitTypeSchema = z.enum(["reps", "time_s"]);
 export type ExerciseLimitType = z.infer<typeof exerciseLimitTypeSchema>;
 
 export const datetimeSchema = z.coerce.date();
@@ -86,7 +86,7 @@ export const workoutSetExerciseInstanceSchema = z.object({
   workout_set_exercise_def_id: z.string().uuid(),
   set_rep: z.number(),
 
-  weight: z.number().nullish(),
+  weight_lbs: z.number().nullish(),
   limit_value: z.number(),
   started: datetimeSchema.nullish(),
   finished: datetimeSchema.nullish(),

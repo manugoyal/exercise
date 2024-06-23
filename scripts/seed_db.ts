@@ -105,30 +105,30 @@ const workouts: CreateWorkout[] = [
             description: "Get some real good flexion on this one yo",
             exercise_name: "lower back stretch",
             variant_name: "left side",
-            limit_type: "time",
+            limit_type: "time_s",
             limit_value: 30,
           },
           {
             exercise_name: "lower back stretch",
             variant_name: "right side",
-            limit_type: "time",
+            limit_type: "time_s",
             limit_value: 30,
           },
           {
             exercise_name: "crossbody lat stretch",
             variant_name: "left side",
-            limit_type: "time",
+            limit_type: "time_s",
             limit_value: 30,
           },
           {
             exercise_name: "crossbody lat stretch",
             variant_name: "right side",
-            limit_type: "time",
+            limit_type: "time_s",
             limit_value: 30,
           },
           {
             exercise_name: "recover",
-            limit_type: "time",
+            limit_type: "time_s",
             limit_value: 30,
           },
         ],
@@ -139,17 +139,17 @@ const workouts: CreateWorkout[] = [
         exercises: [
           {
             exercise_name: "high plank",
-            limit_type: "time",
+            limit_type: "time_s",
             limit_value: 30,
           },
           {
             exercise_name: "isometric bear crawl with shoulder taps",
-            limit_type: "time",
+            limit_type: "time_s",
             limit_value: 30,
           },
           {
             exercise_name: "recover",
-            limit_type: "time",
+            limit_type: "time_s",
             limit_value: 15,
           },
         ],
@@ -166,7 +166,7 @@ const workouts: CreateWorkout[] = [
           },
           {
             exercise_name: "recover",
-            limit_type: "time",
+            limit_type: "time_s",
             limit_value: 60,
           },
         ],
@@ -189,7 +189,7 @@ const workouts: CreateWorkout[] = [
           },
           {
             exercise_name: "recover",
-            limit_type: "time",
+            limit_type: "time_s",
             limit_value: 30,
           },
           {
@@ -199,7 +199,7 @@ const workouts: CreateWorkout[] = [
           },
           {
             exercise_name: "recover",
-            limit_type: "time",
+            limit_type: "time_s",
             limit_value: 30,
           },
           {
@@ -209,7 +209,7 @@ const workouts: CreateWorkout[] = [
           },
           {
             exercise_name: "recover",
-            limit_type: "time",
+            limit_type: "time_s",
             limit_value: 30,
           },
         ],
@@ -226,24 +226,24 @@ const workouts: CreateWorkout[] = [
         exercises: [
           {
             exercise_name: "lateral hip openers",
-            limit_type: "time",
+            limit_type: "time_s",
             limit_value: 30,
           },
           {
             exercise_name: "airplanes",
             variant_name: "left side",
-            limit_type: "time",
+            limit_type: "time_s",
             limit_value: 30,
           },
           {
             exercise_name: "airplanes",
             variant_name: "right side",
-            limit_type: "time",
+            limit_type: "time_s",
             limit_value: 30,
           },
           {
             exercise_name: "recover",
-            limit_type: "time",
+            limit_type: "time_s",
             limit_value: 30,
           },
         ],
@@ -254,24 +254,24 @@ const workouts: CreateWorkout[] = [
         exercises: [
           {
             exercise_name: "oblique twists",
-            limit_type: "time",
+            limit_type: "time_s",
             limit_value: 30,
           },
           {
             exercise_name: "side plank",
             variant_name: "left side",
-            limit_type: "time",
+            limit_type: "time_s",
             limit_value: 30,
           },
           {
             exercise_name: "side plank",
             variant_name: "right side",
-            limit_type: "time",
+            limit_type: "time_s",
             limit_value: 30,
           },
           {
             exercise_name: "recover",
-            limit_type: "time",
+            limit_type: "time_s",
             limit_value: 15,
           },
         ],
@@ -293,7 +293,7 @@ const workouts: CreateWorkout[] = [
           },
           {
             exercise_name: "recover",
-            limit_type: "time",
+            limit_type: "time_s",
             limit_value: 30,
           },
         ],
@@ -316,7 +316,7 @@ const workouts: CreateWorkout[] = [
           },
           {
             exercise_name: "recover",
-            limit_type: "time",
+            limit_type: "time_s",
             limit_value: 45,
           },
           {
@@ -326,7 +326,7 @@ const workouts: CreateWorkout[] = [
           },
           {
             exercise_name: "recover",
-            limit_type: "time",
+            limit_type: "time_s",
             limit_value: 60,
           },
         ],
@@ -344,30 +344,30 @@ const workouts: CreateWorkout[] = [
           {
             exercise_name: "lower back stretch",
             variant_name: "left side",
-            limit_type: "time",
+            limit_type: "time_s",
             limit_value: 30,
           },
           {
             exercise_name: "lower back stretch",
             variant_name: "right side",
-            limit_type: "time",
+            limit_type: "time_s",
             limit_value: 30,
           },
           {
             exercise_name: "crossbody lat stretch",
             variant_name: "left side",
-            limit_type: "time",
+            limit_type: "time_s",
             limit_value: 30,
           },
           {
             exercise_name: "crossbody lat stretch",
             variant_name: "right side",
-            limit_type: "time",
+            limit_type: "time_s",
             limit_value: 30,
           },
           {
             exercise_name: "recover",
-            limit_type: "time",
+            limit_type: "time_s",
             limit_value: 15,
           },
         ],
@@ -379,19 +379,19 @@ const workouts: CreateWorkout[] = [
         exercises: [
           {
             exercise_name: "lateral hip openers",
-            limit_type: "time",
+            limit_type: "time_s",
             limit_value: 30,
           },
           {
             exercise_name: "airplanes",
             variant_name: "left side",
-            limit_type: "time",
+            limit_type: "time_s",
             limit_value: 30,
           },
           {
             exercise_name: "airplanes",
             variant_name: "right side",
-            limit_type: "time",
+            limit_type: "time_s",
             limit_value: 30,
           },
         ],

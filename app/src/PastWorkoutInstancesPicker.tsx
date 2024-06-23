@@ -116,7 +116,7 @@ export function PastWorkoutInstancesPicker() {
         connection,
         pushNavState,
       }),
-    [pastWorkoutInstances, pushNavState],
+    [connection, pastWorkoutInstances, pushNavState],
   );
 
   if (!pastWorkoutInstancesNestedObject) {

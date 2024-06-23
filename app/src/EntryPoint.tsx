@@ -36,7 +36,7 @@ export function EntryPoint() {
       popNavState,
       replaceNavState,
     }),
-    [navStateStack, popNavState, pushNavState],
+    [navStateStack, popNavState, pushNavState, replaceNavState],
   );
 
   if (connection === undefined) {

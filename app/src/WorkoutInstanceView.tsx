@@ -1,4 +1,4 @@
-import { useCallback, useContext, useMemo } from "react";
+import { useCallback, useContext } from "react";
 
 import { ConnectionContext } from "./connection";
 import { NavStateContext } from "./navState";
@@ -7,7 +7,7 @@ import {
   WorkoutInstanceDenormalized,
 } from "./typespecs/denormalized_types";
 import { NestedObjectPicker } from "./NestedObjectPicker";
-import { workoutToNestedObject } from "./workout_to_nested_object";
+import { useWorkoutToNestedObject } from "./useWorkoutToNestedObject";
 
 export function WorkoutInstanceView({
   workoutInstance,
@@ -17,20 +17,19 @@ export function WorkoutInstanceView({
   const { replaceNavState } = useContext(NavStateContext);
   const connection = useContext(ConnectionContext);
 
-  const replaceData = useCallback((data: WorkoutInstanceDenormalized) => {
-    replaceNavState({ status: "view_workout_instance", data });
-  }, []);
-
-  const workoutInstanceNestedObject = useMemo(
-    () =>
-      workoutToNestedObject({
-        type: "workout_instance",
-        data: workoutInstance,
-        replaceData,
-        connection,
-      }),
-    [workoutInstance],
+  const replaceData = useCallback(
+    (data: WorkoutInstanceDenormalized) => {
+      replaceNavState({ status: "view_workout_instance", data });
+    },
+    [replaceNavState],
   );
+
+  const { nestedObject, modals } = useWorkoutToNestedObject({
+    type: "workout_instance",
+    data: workoutInstance,
+    replaceData,
+    connection,
+  });
 
   const handleSetDescription = useCallback(async () => {
     const description = prompt(
@@ -46,7 +45,12 @@ export function WorkoutInstanceView({
       }),
     );
     replaceData(data);
-  }, []);
+  }, [
+    connection,
+    replaceData,
+    workoutInstance.description,
+    workoutInstance.id,
+  ]);
 
   const handleSetFinished = useCallback(async () => {
     const data = workoutInstanceDenormalizedSchema.parse(
@@ -57,17 +61,32 @@ export function WorkoutInstanceView({
       }),
     );
     replaceData(data);
-  }, []);
+  }, [connection, replaceData, workoutInstance.id]);
+
+  const handleReload = useCallback(async () => {
+    const data = workoutInstanceDenormalizedSchema.parse(
+      await connection.runRpc("get_workout_instance", {
+        _auth_id: connection.auth_id,
+        _id: workoutInstance.id,
+      }),
+    );
+    replaceData(data);
+  }, [connection, replaceData, workoutInstance.id]);
 
   return (
-    <div>
-      <NestedObjectPicker nestedObject={workoutInstanceNestedObject} />
-      <br />
-      <button onClick={handleSetDescription}> Set instance notes </button>
-      <br />
-      {workoutInstance.started && !workoutInstance.finished && (
-        <button onClick={handleSetFinished}> Mark finished </button>
-      )}
-    </div>
+    <>
+      {modals}
+      <div>
+        <NestedObjectPicker nestedObject={nestedObject} />
+        <br />
+        <button onClick={handleSetDescription}> Set instance notes </button>
+        <br />
+        {workoutInstance.started && !workoutInstance.finished && (
+          <button onClick={handleSetFinished}> Mark finished </button>
+        )}
+        <button onClick={handleReload}> Reload </button>
+        <br />
+      </div>
+    </>
   );
 }

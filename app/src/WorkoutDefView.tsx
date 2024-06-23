@@ -1,4 +1,4 @@
-import { useContext, useMemo } from "react";
+import { useContext } from "react";
 
 import { ConnectionContext } from "./connection";
 import {
@@ -7,7 +7,7 @@ import {
 } from "./typespecs/denormalized_types";
 import { NestedObjectPicker } from "./NestedObjectPicker";
 import { NavStateContext } from "./navState";
-import { workoutToNestedObject } from "./workout_to_nested_object";
+import { useWorkoutToNestedObject } from "./useWorkoutToNestedObject";
 
 export function WorkoutDefView({
   workoutDef,
@@ -17,10 +17,10 @@ export function WorkoutDefView({
   const connection = useContext(ConnectionContext);
   const { pushNavState } = useContext(NavStateContext);
 
-  const workoutDefNestedObject = useMemo(
-    () => workoutToNestedObject({ type: "workout_def", data: workoutDef }),
-    [workoutDef],
-  );
+  const { nestedObject, modals } = useWorkoutToNestedObject({
+    type: "workout_def",
+    data: workoutDef,
+  });
 
   async function instantiateWorkout() {
     const resp = workoutInstanceDenormalizedSchema.parse(
@@ -34,9 +34,10 @@ export function WorkoutDefView({
 
   return (
     <div>
-      <NestedObjectPicker nestedObject={workoutDefNestedObject} />
+      <NestedObjectPicker nestedObject={nestedObject} />
       <br />
       <button onClick={instantiateWorkout}> Instantiate workout </button>
+      {modals}
     </div>
   );
 }
