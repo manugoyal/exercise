@@ -34,10 +34,67 @@ const exercises: CreateExercise[] = [
     description:
       "Balanced on one foot, lean your body forward until the other leg is straight back and your arms are extended outwards.",
   },
+  {
+    name: "internal side stretch",
+    description:
+      "Stand with one leg ahead of the other. Bend down and try to touch your hands to the floor between your legs.",
+  },
+  {
+    name: "head to knee",
+    description:
+      "Sitting on the ground, stick one leg out and pretzel the other leg against it. Stretch your body forward and try to touch the outstretched leg with your hands and your head to your knee.",
+  },
+  {
+    name: "single leg knee tuck",
+    description: "Lying flat on your back, tuck one knee into your chest.",
+  },
+  {
+    name: "both legs knee tuck",
+    description: "Lying flat on your back, tuck both knees into your chest.",
+  },
+  {
+    name: "bent-over chest stretch",
+    description:
+      "Stretch out your chest and clasp your hands behind your back. Bend over.",
+  },
+  {
+    name: "seated forward fold",
+    description:
+      "Sitting on the ground, stick both legs out and bend forward, trying to touch your feet with your hands and your knees with your head.",
+  },
+  {
+    name: "spiderman stretch",
+    description:
+      "Start in a high plank position. Alternating legs, bring one up to align with your arms/shoulder, and then bring it back.",
+  },
+  {
+    name: "equestrian",
+    description:
+      "With one foot planted on the ground, stick the other one back lying on the ground. Bend forward and support yourself lightly with your hands.",
+  },
+  {
+    name: "figure-four stretch",
+    description:
+      "Lying on your back, bend one leg up into a 90 degree angle. Lift up your other leg and place the foot of the bent leg against the knee of the lifted one. Pull back on the lifted leg to stretch the bent one.",
+  },
+  {
+    name: "pigeon pose",
+    description:
+      "Sit on the ground with one leg stuck back lying on the ground and the other leg bent obtuse and tucked into your torso. Sit back.",
+  },
+  {
+    name: "cat camel",
+    description:
+      "Bent over with both knees and both hands on the ground, alternate between arching the back and pointing upwards (cat) and arching the back and pointing downwards (camel).",
+  },
+  {
+    name: "bicep and back stretch",
+    description:
+      "Inverse of bent-over chest stretch: connect your two hands and stretch them in front of your torso, bending backwards slightly.",
+  },
   // Recover
   {
     name: "recover",
-    description: "chill out yo",
   },
   // Core
   {
@@ -334,7 +391,7 @@ const workouts: CreateWorkout[] = [
     ],
   },
   {
-    name: "stretch it out",
+    name: "nightly stretch",
     sets: [
       {
         name: "part 1",
@@ -342,6 +399,18 @@ const workouts: CreateWorkout[] = [
         transition_time: 5,
         exercises: [
           {
+            exercise_name: "internal side stretch",
+            variant_name: "left side",
+            limit_type: "time_s",
+            limit_value: 30,
+          },
+          {
+            exercise_name: "internal side stretch",
+            variant_name: "right side",
+            limit_type: "time_s",
+            limit_value: 30,
+          },
+          {
             exercise_name: "lower back stretch",
             variant_name: "left side",
             limit_type: "time_s",
@@ -354,14 +423,36 @@ const workouts: CreateWorkout[] = [
             limit_value: 30,
           },
           {
-            exercise_name: "crossbody lat stretch",
+            exercise_name: "head to knee",
             variant_name: "left side",
             limit_type: "time_s",
             limit_value: 30,
           },
           {
-            exercise_name: "crossbody lat stretch",
+            exercise_name: "head to knee",
             variant_name: "right side",
+            limit_type: "time_s",
+            limit_value: 30,
+          },
+          {
+            exercise_name: "single leg knee tuck",
+            variant_name: "left side",
+            limit_type: "time_s",
+            limit_value: 15,
+          },
+          {
+            exercise_name: "single leg knee tuck",
+            variant_name: "right side",
+            limit_type: "time_s",
+            limit_value: 15,
+          },
+          {
+            exercise_name: "both legs knee tuck",
+            limit_type: "time_s",
+            limit_value: 30,
+          },
+          {
+            exercise_name: "bent-over chest stretch",
             limit_type: "time_s",
             limit_value: 30,
           },
@@ -378,19 +469,58 @@ const workouts: CreateWorkout[] = [
         transition_time: 5,
         exercises: [
           {
-            exercise_name: "lateral hip openers",
+            exercise_name: "seated forward fold",
             limit_type: "time_s",
             limit_value: 30,
           },
           {
-            exercise_name: "airplanes",
+            exercise_name: "spiderman stretch",
+            limit_type: "time_s",
+            limit_value: 30,
+          },
+          {
+            exercise_name: "equestrian",
+            variant_name: "left side",
+            limit_type: "time_s",
+            limit_value: 15,
+          },
+          {
+            exercise_name: "equestrian",
+            variant_name: "right side",
+            limit_type: "time_s",
+            limit_value: 15,
+          },
+          {
+            exercise_name: "figure-four stretch",
             variant_name: "left side",
             limit_type: "time_s",
             limit_value: 30,
           },
           {
-            exercise_name: "airplanes",
+            exercise_name: "figure-four stretch",
             variant_name: "right side",
+            limit_type: "time_s",
+            limit_value: 30,
+          },
+          {
+            exercise_name: "pigeon pose",
+            variant_name: "left side",
+            limit_type: "time_s",
+            limit_value: 30,
+          },
+          {
+            exercise_name: "pigeon pose",
+            variant_name: "right side",
+            limit_type: "time_s",
+            limit_value: 30,
+          },
+          {
+            exercise_name: "cat camel",
+            limit_type: "time_s",
+            limit_value: 30,
+          },
+          {
+            exercise_name: "bicep and back stretch",
             limit_type: "time_s",
             limit_value: 30,
           },
@@ -415,11 +545,11 @@ const workoutCycles: CreateWorkoutCycle[] = [
     ],
   },
   {
-    name: "nightly stretch",
+    name: "stretch",
     user_name: "manu",
     entries: [
       {
-        workout_def_name: "stretch it out",
+        workout_def_name: "nightly stretch",
       },
     ],
   },

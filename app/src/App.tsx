@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./App.css";
 
 import { EntryPoint } from "./EntryPoint";
@@ -16,6 +16,27 @@ function App() {
     });
     initializedUnhandledRejectionHandler = true;
   }
+
+  // Keep the screen awake while the app is open.
+  useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let wakeLock: any = null;
+    (async () => {
+      try {
+        if ("wakeLock" in navigator) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          wakeLock = await (navigator.wakeLock as any).request("screen");
+        }
+      } catch (e) {
+        console.warn("Failed to acquire wakeLock:\n", e);
+      }
+    })();
+    return () => {
+      if (wakeLock) {
+        wakeLock.release();
+      }
+    };
+  }, []);
 
   if (error) {
     return <ErrorDisplay error={error} />;

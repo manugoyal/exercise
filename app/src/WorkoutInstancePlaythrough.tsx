@@ -157,7 +157,7 @@ export function WorkoutInstancePlaythrough(props: {
         {[
           workout.workout_def.name,
           workoutSet.name ?? `set ${workout_set_idx + 1}`,
-          `rep ${instance.set_rep}`,
+          `rep ${instance.set_rep} / ${workoutSet.reps}`,
         ].join(" - ")}{" "}
       </h2>
       <small>
