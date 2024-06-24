@@ -53,7 +53,7 @@ const exercises: CreateExercise[] = [
     description: "Lying flat on your back, tuck both knees into your chest.",
   },
   {
-    name: "bent-over chest stretch",
+    name: "bent-over tricep stretch",
     description:
       "Stretch out your chest and clasp your hands behind your back. Bend over.",
   },

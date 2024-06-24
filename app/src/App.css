@@ -5,3 +5,12 @@ p {
 small {
   white-space: pre-wrap;
 }
+
+button {
+  min-width: 100px;
+  min-height: 50px;
+}
+
+body {
+  padding: 10px 10px 10px 10px;
+}

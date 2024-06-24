@@ -152,14 +152,14 @@ export function WorkoutInstancePlaythrough(props: {
       {instance.description ? (
         <small>{`Instance notes: ${instance.description}`}</small>
       ) : null}
-      <h2>
+      <h3>
         {" "}
         {[
           workout.workout_def.name,
           workoutSet.name ?? `set ${workout_set_idx + 1}`,
           `rep ${instance.set_rep} / ${workoutSet.reps}`,
         ].join(" - ")}{" "}
-      </h2>
+      </h3>
       <small>
         {[
           workoutSet.description &&
