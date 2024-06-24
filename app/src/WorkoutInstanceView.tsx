@@ -8,13 +8,15 @@ import {
 } from "./typespecs/denormalized_types";
 import { NestedObjectPicker } from "./NestedObjectPicker";
 import { useWorkoutToNestedObject } from "./useWorkoutToNestedObject";
+import { sortWorkoutInstanceDenormalized } from "./sortedWorkoutInstanceDenormalized";
+import { getPlaythroughExerciseInitialState } from "./playthroughTypes";
 
 export function WorkoutInstanceView({
   workoutInstance,
 }: {
   workoutInstance: WorkoutInstanceDenormalized;
 }) {
-  const { replaceNavState } = useContext(NavStateContext);
+  const { pushNavState, replaceNavState } = useContext(NavStateContext);
   const connection = useContext(ConnectionContext);
 
   const replaceData = useCallback(
@@ -73,11 +75,27 @@ export function WorkoutInstanceView({
     replaceData(data);
   }, [connection, replaceData, workoutInstance.id]);
 
+  const handlePlaythrough = useCallback(() => {
+    const { sortedEntries } = sortWorkoutInstanceDenormalized(workoutInstance);
+    if (!sortedEntries.length) {
+      throw new Error("Cannot start workout: it has no exercises");
+    }
+    pushNavState({
+      status: "playthrough_workout_instance",
+      data: getPlaythroughExerciseInitialState({
+        workout: workoutInstance,
+        entry: sortedEntries[0],
+      }),
+    });
+  }, [pushNavState, workoutInstance]);
+
   return (
     <>
       {modals}
       <div>
         <NestedObjectPicker nestedObject={nestedObject} />
+        <br />
+        <button onClick={handlePlaythrough}> Start workout! </button>
         <br />
         <button onClick={handleSetDescription}> Set instance notes </button>
         <br />

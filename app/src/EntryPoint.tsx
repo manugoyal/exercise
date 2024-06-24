@@ -7,6 +7,7 @@ import { PostLogin } from "./PostLogin";
 import { WorkoutCyclesPicker } from "./WorkoutCyclesPicker";
 import { WorkoutDefView } from "./WorkoutDefView";
 import { WorkoutInstanceView } from "./WorkoutInstanceView";
+import { WorkoutInstancePlaythrough } from "./WorkoutInstancePlaythrough";
 
 export function EntryPoint() {
   const { connection, loginForm } = useMakeConnection();
@@ -69,6 +70,8 @@ function EntryPointNav() {
     return <WorkoutDefView workoutDef={navState.data} />;
   } else if (navState.status === "view_workout_instance") {
     return <WorkoutInstanceView workoutInstance={navState.data} />;
+  } else if (navState.status === "playthrough_workout_instance") {
+    return <WorkoutInstancePlaythrough data={navState.data} />;
   } else {
     throw new Error(`Unknown NavState: ${JSON.stringify(navState)}`);
   }

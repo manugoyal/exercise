@@ -284,9 +284,9 @@ export function useWorkoutToNestedObject({
           text: workoutSet.name ?? `Set ${idx + 1}`,
           subtext: [
             workoutSet.description,
-            pluralize("reps", workoutSet.reps, true),
+            pluralize("rep", workoutSet.reps, true),
             workoutSet.transition_time
-              ? `Transition time: ${pluralize("seconds", workoutSet.transition_time, true)}`
+              ? `Transition time: ${pluralize("second", workoutSet.transition_time, true)}`
               : undefined,
           ]
             .filter((x) => !!x)
@@ -343,7 +343,7 @@ export function useWorkoutToNestedObject({
                           setExercise.variant?.description,
                         ]
                           .filter((x) => !!x)
-                          .join(". "),
+                          .join(" - "),
                       } as const,
                     ]
                   : []),

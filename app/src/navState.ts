@@ -3,6 +3,7 @@ import {
   WorkoutInstanceDenormalized,
   WorkoutDefDenormalized,
 } from "./typespecs/denormalized_types";
+import { PlaythroughState } from "./playthroughTypes";
 
 export type NavStatePostLogin = { status: "post_login" };
 export type NavStatePickWorkoutCycle = { status: "pick_workout_cycle" };
@@ -17,13 +18,18 @@ export type NavStateViewWorkoutInstance = {
   status: "view_workout_instance";
   data: WorkoutInstanceDenormalized;
 };
+export type NavStatePlaythroughWorkoutInstance = {
+  status: "playthrough_workout_instance";
+  data: PlaythroughState;
+};
 
 export type NavState =
   | NavStatePostLogin
   | NavStatePickWorkoutCycle
   | NavStatePickPastWorkoutInstances
   | NavStateViewWorkoutDef
-  | NavStateViewWorkoutInstance;
+  | NavStateViewWorkoutInstance
+  | NavStatePlaythroughWorkoutInstance;
 
 export type NavStateContextT = {
   navStateStack: NavState[];
