@@ -6,39 +6,41 @@ import {
   workoutCycleSchema,
   workoutCycleEntrySchema,
   workoutDefSchema,
-  workoutSetDefSchema,
-  workoutSetExerciseDefSchema,
+  workoutBlockDefSchema,
+  workoutBlockExerciseDefSchema,
   workoutInstanceSchema,
-  workoutSetExerciseInstanceSchema,
+  workoutBlockExerciseInstanceSchema,
   userSchema,
 } from "./db_types";
 
-export const workoutDefDenormalizedSchema = workoutDefSchema.merge(
-  z.object({
-    sets: workoutSetDefSchema
-      .omit({ workout_def_id: true, ordinal: true })
-      .merge(
-        z.object({
-          exercises: workoutSetExerciseDefSchema
-            .omit({
-              workout_set_def_id: true,
-              ordinal: true,
-              exercise_id: true,
-              variant_id: true,
-            })
-            .merge(
-              z.object({
-                exercise: exerciseSchema,
-                variant: variantSchema.nullish(),
-              }),
-            )
-            .array(),
-        }),
-      )
-      .array(),
-    last_finished: datetimeSchema.nullish(),
-  }),
-);
+export const workoutDefDenormalizedSchema = workoutDefSchema
+  .omit({ user_id: true })
+  .merge(
+    z.object({
+      user: userSchema,
+      blocks: workoutBlockDefSchema
+        .omit({ workout_def_id: true, ordinal: true })
+        .merge(
+          z.object({
+            exercises: workoutBlockExerciseDefSchema
+              .omit({
+                workout_block_def_id: true,
+                ordinal: true,
+                exercise_id: true,
+              })
+              .merge(
+                z.object({
+                  exercise: exerciseSchema,
+                  variants: variantSchema.array(),
+                }),
+              )
+              .array(),
+          }),
+        )
+        .array(),
+      last_finished: datetimeSchema.nullish(),
+    }),
+  );
 export type WorkoutDefDenormalized = z.infer<
   typeof workoutDefDenormalizedSchema
 >;
@@ -49,7 +51,7 @@ export const workoutInstanceDenormalizedSchema = workoutInstanceSchema
     z.object({
       workout_def: workoutDefDenormalizedSchema,
       user: userSchema,
-      set_exercises: workoutSetExerciseInstanceSchema
+      block_exercises: workoutBlockExerciseInstanceSchema
         .omit({ workout_instance_id: true })
         .array(),
     }),

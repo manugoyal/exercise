@@ -6,8 +6,8 @@ import {
   workoutCycleSchema,
   workoutCycleEntrySchema,
   workoutDefSchema,
-  workoutSetDefSchema,
-  workoutSetExerciseDefSchema,
+  workoutBlockDefSchema,
+  workoutBlockExerciseDefSchema,
 } from "../app/src/typespecs/db_types";
 
 export const createExerciseSchema = z.object({
@@ -21,26 +21,26 @@ export const createVariantSchema = z.object({
 });
 
 export const createWorkoutDefSchema = workoutDefSchema
-  .omit({ id: true, created: true })
+  .omit({ id: true, created: true, user_id: true })
   .merge(
     z.object({
-      sets: workoutSetDefSchema
+      user_name: z.string(),
+      blocks: workoutBlockDefSchema
         .omit({ id: true, created: true, workout_def_id: true, ordinal: true })
         .merge(
           z.object({
-            exercises: workoutSetExerciseDefSchema
+            exercises: workoutBlockExerciseDefSchema
               .omit({
                 id: true,
                 created: true,
-                workout_set_def_id: true,
+                workout_block_def_id: true,
                 ordinal: true,
                 exercise_id: true,
-                variant_id: true,
               })
               .merge(
                 z.object({
                   exercise_name: z.string(),
-                  variant_name: z.string().nullish(),
+                  variant_names: z.string().array().nullish(),
                 }),
               )
               .array(),

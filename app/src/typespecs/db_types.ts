@@ -30,12 +30,13 @@ export type Variant = z.infer<typeof variantSchema>;
 export const workoutDefSchema = z.object({
   id: z.string().uuid(),
   created: datetimeSchema,
+  user_id: z.string().uuid(),
   name: z.string(),
   description: z.string().nullish(),
 });
 export type WorkoutDef = z.infer<typeof workoutDefSchema>;
 
-export const workoutSetDefSchema = z.object({
+export const workoutBlockDefSchema = z.object({
   id: z.string().uuid(),
   created: datetimeSchema,
   name: z.string().nullish(),
@@ -43,25 +44,34 @@ export const workoutSetDefSchema = z.object({
 
   workout_def_id: z.string().uuid(),
   ordinal: z.number(),
-  reps: z.number(),
+  sets: z.number(),
   transition_time: z.number().nullish(),
 });
-export type WorkoutSetDef = z.infer<typeof workoutSetDefSchema>;
+export type WorkoutSetDef = z.infer<typeof workoutBlockDefSchema>;
 
-export const workoutSetExerciseDefSchema = z.object({
+export const workoutBlockExerciseDefSchema = z.object({
   id: z.string().uuid(),
   created: datetimeSchema,
   description: z.string().nullish(),
 
-  workout_set_def_id: z.string().uuid(),
+  workout_block_def_id: z.string().uuid(),
   ordinal: z.number(),
 
   exercise_id: z.string().uuid(),
-  variant_id: z.string().uuid().nullish(),
   limit_type: exerciseLimitTypeSchema,
   limit_value: z.number(),
 });
-export type WorkoutSetExerciseDef = z.infer<typeof workoutSetExerciseDefSchema>;
+export type WorkoutSetExerciseDef = z.infer<
+  typeof workoutBlockExerciseDefSchema
+>;
+
+export const workoutBlockExerciseVariantsSchema = z.object({
+  workout_block_exercise_def_id: z.string().uuid(),
+  variant_id: z.string().uuid(),
+});
+export type WorkoutBlockExerciseVariant = z.infer<
+  typeof workoutBlockExerciseVariantsSchema
+>;
 
 export const workoutInstanceSchema = z.object({
   id: z.string().uuid(),
@@ -76,23 +86,24 @@ export const workoutInstanceSchema = z.object({
 });
 export type WorkoutInstance = z.infer<typeof workoutInstanceSchema>;
 
-export const workoutSetExerciseInstanceSchema = z.object({
+export const workoutBlockExerciseInstanceSchema = z.object({
   id: z.string().uuid(),
   created: datetimeSchema,
   description: z.string().nullish(),
 
   workout_instance_id: z.string().uuid(),
 
-  workout_set_exercise_def_id: z.string().uuid(),
-  set_rep: z.number(),
+  workout_block_exercise_def_id: z.string().uuid(),
+  set_num: z.number(),
 
-  weight_lbs: z.number().nullish(),
+  weight_lbs: z.number(),
   limit_value: z.number(),
   started: datetimeSchema.nullish(),
   finished: datetimeSchema.nullish(),
+  paused_time_s: z.number().nullish(),
 });
 export type WorkoutSetExerciseInstance = z.infer<
-  typeof workoutSetExerciseInstanceSchema
+  typeof workoutBlockExerciseInstanceSchema
 >;
 
 export const workoutCycleSchema = z.object({

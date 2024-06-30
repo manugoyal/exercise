@@ -11,7 +11,7 @@ import { getPlaythroughExerciseInitialState } from "./playthroughTypes";
 export function WorkoutInstancePlaythrough(props: {
   data: NavStatePlaythroughWorkoutInstance["data"];
 }) {
-  const { workout, workout_set_exercise_instance_id, phase, timerEntries } =
+  const { workout, workout_block_exercise_instance_id, phase, timerEntries } =
     props.data;
   if (timerEntries.length === 0) {
     throw new Error("timerEntries should not be empty");
@@ -27,17 +27,17 @@ export function WorkoutInstancePlaythrough(props: {
     [workout],
   );
   const entryIdx = entryIdToSortedEntryIdx.get(
-    workout_set_exercise_instance_id,
+    workout_block_exercise_instance_id,
   );
   if (entryIdx === undefined) {
     throw new Error(
-      `Unknown instance id ${workout_set_exercise_instance_id} in workout instance ${workout.id}`,
+      `Unknown instance id ${workout_block_exercise_instance_id} in workout instance ${workout.id}`,
     );
   }
-  const { instance, workout_set_idx, set_exercise_idx } =
+  const { instance, workout_block_idx, block_exercise_idx } =
     sortedEntries[entryIdx];
-  const workoutSet = workout.workout_def.sets[workout_set_idx];
-  const setExercise = workoutSet.exercises[set_exercise_idx];
+  const workoutBlock = workout.workout_def.blocks[workout_block_idx];
+  const blockExercise = workoutBlock.exercises[block_exercise_idx];
 
   const getTimeRemaining = useCallback(() => {
     const tailState = { lastEntry: timerEntries[0], elapsedTimeMs: 0 };
@@ -53,8 +53,8 @@ export function WorkoutInstancePlaythrough(props: {
       });
     const elapsedTime = tailState.elapsedTimeMs / 1000;
     if (phase === "transition") {
-      return Math.ceil((workoutSet.transition_time ?? 5) - elapsedTime);
-    } else if (setExercise.limit_type === "reps") {
+      return Math.ceil((workoutBlock.transition_time ?? 5) - elapsedTime);
+    } else if (blockExercise.limit_type === "reps") {
       return undefined;
     } else {
       return Math.ceil(instance.limit_value - elapsedTime);
@@ -62,9 +62,9 @@ export function WorkoutInstancePlaythrough(props: {
   }, [
     instance.limit_value,
     phase,
-    setExercise.limit_type,
+    blockExercise.limit_type,
     timerEntries,
-    workoutSet.transition_time,
+    workoutBlock.transition_time,
   ]);
 
   const advancePhase = useCallback(() => {
@@ -73,7 +73,7 @@ export function WorkoutInstancePlaythrough(props: {
         status: "playthrough_workout_instance",
         data: {
           workout,
-          workout_set_exercise_instance_id,
+          workout_block_exercise_instance_id,
           phase: "play",
           timerEntries: [{ type: "resume", time: new Date() }],
         },
@@ -98,7 +98,7 @@ export function WorkoutInstancePlaythrough(props: {
     replaceNavState,
     sortedEntries,
     workout,
-    workout_set_exercise_instance_id,
+    workout_block_exercise_instance_id,
   ]);
 
   const toggleTimer = useCallback(() => {
@@ -132,44 +132,52 @@ export function WorkoutInstancePlaythrough(props: {
   // Don't wrap this in a useMemo so that it's recomputed on every re-render.
   const phaseText = [
     phase === "transition" ? "Get Ready" : "Go",
-    setExercise.limit_type === "reps"
+    blockExercise.limit_type === "reps"
       ? `${pluralize("Rep", instance.limit_value, true)}`
       : `${pluralize("Second", getTimeRemaining(), true)}`,
   ].join(" - ");
 
+  const blockExerciseDescription = [
+    blockExercise.description,
+    blockExercise.exercise.description,
+    ...blockExercise.variants.map((x) => x.description),
+  ]
+    .filter((x) => !!x)
+    .join("\n");
+
   return (
     <div>
-      <h1> {phaseText} </h1>
+      <h1>{phaseText}</h1>
       <h2>
-        {" "}
-        {[setExercise.exercise.name, setExercise.variant?.name]
+        {[
+          blockExercise.exercise.name,
+          ...blockExercise.variants.map((x) => x.name),
+        ]
           .filter((x) => !!x)
-          .join(" - ")}{" "}
+          .join(" - ")}
       </h2>
-      {setExercise.description ? (
-        <small>{setExercise.description}</small>
-      ) : null}
+      {blockExerciseDescription ? <p>{blockExerciseDescription}</p> : null}
       {instance.description ? (
-        <small>{`Instance notes: ${instance.description}`}</small>
+        <p>{`Instance notes: ${instance.description}`}</p>
       ) : null}
       <h3>
         {" "}
         {[
           workout.workout_def.name,
-          workoutSet.name ?? `set ${workout_set_idx + 1}`,
-          `rep ${instance.set_rep} / ${workoutSet.reps}`,
+          workoutBlock.name ?? `block ${workout_block_idx + 1}`,
+          `set ${instance.set_num} / ${workoutBlock.sets}`,
         ].join(" - ")}{" "}
       </h3>
-      <small>
+      <p>
         {[
-          workoutSet.description &&
-            `Set description: ${workoutSet.description}`,
+          workoutBlock.description &&
+            `Block description: ${workoutBlock.description}`,
           workout.workout_def.description &&
             `Workout description: ${workout.workout_def.description}`,
         ]
           .filter((x) => !!x)
           .join("\n")}
-      </small>
+      </p>
       <br />
       <br />
       <button onClick={advancePhase}> Next exercise </button>

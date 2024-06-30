@@ -9,7 +9,3 @@ export const pastWorkoutInstanceSchema = workoutInstanceSchema.merge(
 );
 
 export type PastWorkoutInstance = z.infer<typeof pastWorkoutInstanceSchema>;
-
-//export const patchWorkoutInstanceDefault = {
-//    _workout_
-//} as const;

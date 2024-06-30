@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import pluralize from "pluralize";
 import { z } from "zod";
 import { Connection } from "./connection";
+import { Variant } from "./typespecs/db_types";
 import {
   workoutInstanceDenormalizedSchema,
   WorkoutInstanceDenormalized,
@@ -17,14 +18,14 @@ import {
 } from "./util";
 
 function instanceExerciseSetKey(
-  workout_set_exercise_def_id: string,
-  set_rep: number,
+  workout_block_exercise_def_id: string,
+  set_num: number,
 ) {
-  return JSON.stringify({ workout_set_exercise_def_id, set_rep });
+  return JSON.stringify({ workout_block_exercise_def_id, set_num });
 }
 
-type WorkoutSetExerciseInstance =
-  WorkoutInstanceDenormalized["set_exercises"][number];
+type WorkoutBlockExerciseInstance =
+  WorkoutInstanceDenormalized["block_exercises"][number];
 
 type SetQuantityModalInfo = {
   quantityName: string;
@@ -102,37 +103,41 @@ function useSetQuantityModal(key: number) {
   return { modal, showModal };
 }
 
-function collectRelatedWorkoutSetExerciseDefIds({
+function collectRelatedWorkoutBlockExerciseDefIds({
   workoutInstance,
   instanceEntry,
 }: {
   workoutInstance: WorkoutInstanceDenormalized;
-  instanceEntry: WorkoutSetExerciseInstance;
+  instanceEntry: WorkoutBlockExerciseInstance;
 }): Set<string> {
   const ret = new Set<string>();
-  ret.add(instanceEntry.workout_set_exercise_def_id);
+  ret.add(instanceEntry.workout_block_exercise_def_id);
 
   // Collect all workout exercises.
-  const exerciseDefs = workoutInstance.workout_def.sets.flatMap((s) =>
-    s.exercises.map((e) => ({ set_id: s.id, e })),
+  const exerciseDefs = workoutInstance.workout_def.blocks.flatMap((b) =>
+    b.exercises.map((e) => ({ block_id: b.id, e })),
   );
   const thisDef = exerciseDefs.find(
-    (x) => x.e.id === instanceEntry.workout_set_exercise_def_id,
+    (x) => x.e.id === instanceEntry.workout_block_exercise_def_id,
   );
   if (!thisDef) {
     throw new Error(
-      `Invalid workout instance. Entry ${instanceEntry.id} references nonexistent exercise ${instanceEntry.workout_set_exercise_def_id}`,
+      `Invalid workout instance. Entry ${instanceEntry.id} references nonexistent exercise ${instanceEntry.workout_block_exercise_def_id}`,
     );
   }
-  const analogousVariants = ["left side", "right side"];
+  const ignoreVariantNames = new Set<string>(["left side", "right side"]);
+  function variantsKey(variants: Variant[]): string {
+    const ids = variants
+      .filter((v) => !ignoreVariantNames.has(v.name))
+      .map((v) => v.id);
+    ids.sort();
+    return ids.join(",");
+  }
   exerciseDefs.forEach((x) => {
     if (
-      thisDef.set_id === x.set_id &&
+      thisDef.block_id === x.block_id &&
       thisDef.e.exercise.id === x.e.exercise.id &&
-      thisDef.e.variant &&
-      x.e.variant &&
-      analogousVariants.includes(thisDef.e.variant.name) &&
-      analogousVariants.includes(x.e.variant.name)
+      variantsKey(thisDef.e.variants) === variantsKey(x.e.variants)
     ) {
       ret.add(x.e.id);
     }
@@ -145,26 +150,26 @@ function collectInstancesToSet({
   instanceEntry,
 }: {
   workoutInstance: WorkoutInstanceDenormalized;
-  instanceEntry: WorkoutSetExerciseInstance;
+  instanceEntry: WorkoutBlockExerciseInstance;
 }): Set<string> {
   const ret = new Set<string>();
   if (instanceEntry.finished) {
     ret.add(instanceEntry.id);
   } else {
     // Collect all unfinished instances which have a related
-    // workout_set_exercise_def_id and >= setRep.
-    const relatedWorkoutSetExerciseDefIds =
-      collectRelatedWorkoutSetExerciseDefIds({
+    // workout_block_exercise_def_id and >= setNum.
+    const relatedWorkoutBlockExerciseDefIds =
+      collectRelatedWorkoutBlockExerciseDefIds({
         workoutInstance,
         instanceEntry,
       });
-    for (const entry of workoutInstance.set_exercises) {
+    for (const entry of workoutInstance.block_exercises) {
       if (
         !entry.finished &&
-        relatedWorkoutSetExerciseDefIds.has(
-          entry.workout_set_exercise_def_id,
+        relatedWorkoutBlockExerciseDefIds.has(
+          entry.workout_block_exercise_def_id,
         ) &&
-        entry.set_rep >= instanceEntry.set_rep
+        entry.set_num >= instanceEntry.set_num
       ) {
         ret.add(entry.id);
       }
@@ -200,7 +205,7 @@ async function runSetQuantity({
   quantityValue,
 }: {
   workoutInstance: WorkoutInstanceDenormalized;
-  instanceEntry: WorkoutSetExerciseInstance;
+  instanceEntry: WorkoutBlockExerciseInstance;
   replaceData: (data: WorkoutInstanceDenormalized) => void;
   connection: Connection;
   quantityKey: string;
@@ -212,9 +217,9 @@ async function runSetQuantity({
   });
   await Promise.all(
     [...instanceIdsToSet.values()].map((instanceId) =>
-      connection.runRpc("patch_workout_set_exercise_instance", {
+      connection.runRpc("patch_workout_block_exercise_instance", {
         _auth_id: connection.auth_id,
-        _workout_set_exercise_instance_id: instanceId,
+        _workout_block_exercise_instance_id: instanceId,
         [quantityKey]: quantityValue,
       }),
     ),
@@ -250,9 +255,12 @@ export function useWorkoutToNestedObject({
   const workoutInstanceEntries = useMemo(
     () =>
       type === "workout_instance"
-        ? new Map<string, WorkoutSetExerciseInstance>(
-            data.set_exercises.map((e) => [
-              instanceExerciseSetKey(e.workout_set_exercise_def_id, e.set_rep),
+        ? new Map<string, WorkoutBlockExerciseInstance>(
+            data.block_exercises.map((e) => [
+              instanceExerciseSetKey(
+                e.workout_block_exercise_def_id,
+                e.set_num,
+              ),
               e,
             ]),
           )
@@ -278,43 +286,41 @@ export function useWorkoutToNestedObject({
       ]
         .filter((x) => !!x)
         .join("\n"),
-      children: workoutDef.sets.map(
-        (workoutSet, idx): NestedObject => ({
+      children: workoutDef.blocks.map(
+        (block, idx): NestedObject => ({
           kind: "node",
-          text: workoutSet.name ?? `Set ${idx + 1}`,
+          text: block.name ?? `Block ${idx + 1}`,
           subtext: [
-            workoutSet.description,
-            pluralize("rep", workoutSet.reps, true),
-            workoutSet.transition_time
-              ? `Transition time: ${pluralize("second", workoutSet.transition_time, true)}`
+            block.description,
+            pluralize("set", block.sets, true),
+            block.transition_time
+              ? `Transition time: ${pluralize("second", block.transition_time, true)}`
               : undefined,
           ]
             .filter((x) => !!x)
             .join("\n"),
           children: (type === "workout_def"
-            ? cartesianProduct([undefined], workoutSet.exercises)
+            ? cartesianProduct([undefined], block.exercises)
             : cartesianProduct(
-                Array.from({ length: workoutSet.reps }).map(
-                  (_, idx) => idx + 1,
-                ),
-                workoutSet.exercises,
+                Array.from({ length: block.sets }).map((_, idx) => idx + 1),
+                block.exercises,
               )
-          ).map(([setRepIdx, setExercise]): NestedObject => {
+          ).map(([setNum, setExercise]): NestedObject => {
             const instanceEntry = (() => {
-              if (!(setRepIdx && workoutInstanceEntries)) {
+              if (!(setNum && workoutInstanceEntries)) {
                 return undefined;
               }
               return workoutInstanceEntries.get(
-                instanceExerciseSetKey(setExercise.id, setRepIdx),
+                instanceExerciseSetKey(setExercise.id, setNum),
               );
             })();
             const isReps = setExercise.limit_type === "reps";
             return {
               kind: "node",
               text: [
-                setRepIdx && `Set ${setRepIdx}`,
+                setNum && `Set ${setNum}`,
                 setExercise.exercise.name,
-                setExercise.variant?.name,
+                ...setExercise.variants.map((x) => x.name),
               ]
                 .filter((x) => !!x)
                 .join(" - "),
@@ -340,7 +346,7 @@ export function useWorkoutToNestedObject({
                         kind: "leaf",
                         text: [
                           setExercise.exercise.description,
-                          setExercise.variant?.description,
+                          ...setExercise.variants.map((x) => x.description),
                         ]
                           .filter((x) => !!x)
                           .join(" - "),
@@ -397,10 +403,10 @@ export function useWorkoutToNestedObject({
                           const newWorkoutInstance =
                             workoutInstanceDenormalizedSchema.parse(
                               await connection.runRpc(
-                                "patch_workout_set_exercise_instance",
+                                "patch_workout_block_exercise_instance",
                                 {
                                   _auth_id: connection.auth_id,
-                                  _workout_set_exercise_instance_id:
+                                  _workout_block_exercise_instance_id:
                                     instanceEntry.id,
                                   _description: description,
                                 },

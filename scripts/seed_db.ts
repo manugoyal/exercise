@@ -12,6 +12,8 @@ import {
 import { LOCAL_DB_URL } from "./constants";
 import { mapAt } from "./util";
 
+const userName = "manu";
+
 const exercises: CreateExercise[] = [
   // Stretch
   {
@@ -90,7 +92,7 @@ const exercises: CreateExercise[] = [
   {
     name: "bicep and back stretch",
     description:
-      "Inverse of bent-over chest stretch: connect your two hands and stretch them in front of your torso, bending backwards slightly.",
+      "Inverse of bent-over tricep stretch: connect your two hands and stretch them in front of your torso, bending backwards slightly.",
   },
   // Recover
   {
@@ -145,41 +147,43 @@ const variants: CreateVariant[] = [
   { name: "left side" },
   { name: "right side" },
   { name: "5 second tempo" },
+  { name: "4 second tempo" },
 ];
 
 const workouts: CreateWorkout[] = [
   {
     name: "upper-body push",
     description: "push push push",
-    sets: [
+    user_name: userName,
+    blocks: [
       {
         name: "stretch",
         description: "get stretched",
-        reps: 1,
+        sets: 1,
         transition_time: 5,
         exercises: [
           {
             description: "Get some real good flexion on this one yo",
             exercise_name: "lower back stretch",
-            variant_name: "left side",
+            variant_names: ["left side"],
             limit_type: "time_s",
             limit_value: 30,
           },
           {
             exercise_name: "lower back stretch",
-            variant_name: "right side",
+            variant_names: ["right side"],
             limit_type: "time_s",
             limit_value: 30,
           },
           {
             exercise_name: "crossbody lat stretch",
-            variant_name: "left side",
+            variant_names: ["left side"],
             limit_type: "time_s",
             limit_value: 30,
           },
           {
             exercise_name: "crossbody lat stretch",
-            variant_name: "right side",
+            variant_names: ["right side"],
             limit_type: "time_s",
             limit_value: 30,
           },
@@ -192,7 +196,7 @@ const workouts: CreateWorkout[] = [
       },
       {
         name: "core",
-        reps: 2,
+        sets: 2,
         exercises: [
           {
             exercise_name: "high plank",
@@ -213,11 +217,11 @@ const workouts: CreateWorkout[] = [
       },
       {
         name: "bench",
-        reps: 3,
+        sets: 3,
         exercises: [
           {
             exercise_name: "barbell bench press",
-            variant_name: "5 second tempo",
+            variant_names: ["5 second tempo"],
             limit_type: "reps",
             limit_value: 8,
           },
@@ -230,17 +234,17 @@ const workouts: CreateWorkout[] = [
       },
       {
         name: "accessory",
-        reps: 3,
+        sets: 3,
         exercises: [
           {
             exercise_name: "single-arm dumbbell incline bench press",
-            variant_name: "left side",
+            variant_names: ["left side", "4 second tempo"],
             limit_type: "reps",
             limit_value: 8,
           },
           {
             exercise_name: "single-arm dumbbell incline bench press",
-            variant_name: "right side",
+            variant_names: ["right side", "4 second tempo"],
             limit_type: "reps",
             limit_value: 8,
           },
@@ -275,10 +279,11 @@ const workouts: CreateWorkout[] = [
   },
   {
     name: "lower-body",
-    sets: [
+    user_name: userName,
+    blocks: [
       {
         name: "stretch",
-        reps: 1,
+        sets: 1,
         transition_time: 5,
         exercises: [
           {
@@ -288,13 +293,13 @@ const workouts: CreateWorkout[] = [
           },
           {
             exercise_name: "airplanes",
-            variant_name: "left side",
+            variant_names: ["left side"],
             limit_type: "time_s",
             limit_value: 30,
           },
           {
             exercise_name: "airplanes",
-            variant_name: "right side",
+            variant_names: ["right side"],
             limit_type: "time_s",
             limit_value: 30,
           },
@@ -307,7 +312,7 @@ const workouts: CreateWorkout[] = [
       },
       {
         name: "core",
-        reps: 2,
+        sets: 2,
         exercises: [
           {
             exercise_name: "oblique twists",
@@ -316,13 +321,13 @@ const workouts: CreateWorkout[] = [
           },
           {
             exercise_name: "side plank",
-            variant_name: "left side",
+            variant_names: ["left side"],
             limit_type: "time_s",
             limit_value: 30,
           },
           {
             exercise_name: "side plank",
-            variant_name: "right side",
+            variant_names: ["right side"],
             limit_type: "time_s",
             limit_value: 30,
           },
@@ -335,7 +340,7 @@ const workouts: CreateWorkout[] = [
       },
       {
         name: "squats",
-        reps: 3,
+        sets: 3,
         exercises: [
           {
             exercise_name: "dumbbell goblet squats",
@@ -357,17 +362,17 @@ const workouts: CreateWorkout[] = [
       },
       {
         name: "accessory",
-        reps: 3,
+        sets: 3,
         exercises: [
           {
             exercise_name: "dumbbell split squats",
-            variant_name: "left side",
+            variant_names: ["left side"],
             limit_type: "reps",
             limit_value: 8,
           },
           {
             exercise_name: "dumbbell split squats",
-            variant_name: "right side",
+            variant_names: ["right side"],
             limit_type: "reps",
             limit_value: 8,
           },
@@ -392,57 +397,58 @@ const workouts: CreateWorkout[] = [
   },
   {
     name: "nightly stretch",
-    sets: [
+    user_name: userName,
+    blocks: [
       {
         name: "part 1",
-        reps: 1,
+        sets: 1,
         transition_time: 5,
         exercises: [
           {
             exercise_name: "internal side stretch",
-            variant_name: "left side",
+            variant_names: ["left side"],
             limit_type: "time_s",
             limit_value: 30,
           },
           {
             exercise_name: "internal side stretch",
-            variant_name: "right side",
+            variant_names: ["right side"],
             limit_type: "time_s",
             limit_value: 30,
           },
           {
             exercise_name: "lower back stretch",
-            variant_name: "left side",
+            variant_names: ["left side"],
             limit_type: "time_s",
             limit_value: 30,
           },
           {
             exercise_name: "lower back stretch",
-            variant_name: "right side",
+            variant_names: ["right side"],
             limit_type: "time_s",
             limit_value: 30,
           },
           {
             exercise_name: "head to knee",
-            variant_name: "left side",
+            variant_names: ["left side"],
             limit_type: "time_s",
             limit_value: 30,
           },
           {
             exercise_name: "head to knee",
-            variant_name: "right side",
+            variant_names: ["right side"],
             limit_type: "time_s",
             limit_value: 30,
           },
           {
             exercise_name: "single leg knee tuck",
-            variant_name: "left side",
+            variant_names: ["left side"],
             limit_type: "time_s",
             limit_value: 15,
           },
           {
             exercise_name: "single leg knee tuck",
-            variant_name: "right side",
+            variant_names: ["right side"],
             limit_type: "time_s",
             limit_value: 15,
           },
@@ -452,7 +458,7 @@ const workouts: CreateWorkout[] = [
             limit_value: 30,
           },
           {
-            exercise_name: "bent-over chest stretch",
+            exercise_name: "bent-over tricep stretch",
             limit_type: "time_s",
             limit_value: 30,
           },
@@ -465,7 +471,7 @@ const workouts: CreateWorkout[] = [
       },
       {
         name: "part 2",
-        reps: 1,
+        sets: 1,
         transition_time: 5,
         exercises: [
           {
@@ -480,37 +486,37 @@ const workouts: CreateWorkout[] = [
           },
           {
             exercise_name: "equestrian",
-            variant_name: "left side",
+            variant_names: ["left side"],
             limit_type: "time_s",
             limit_value: 15,
           },
           {
             exercise_name: "equestrian",
-            variant_name: "right side",
+            variant_names: ["right side"],
             limit_type: "time_s",
             limit_value: 15,
           },
           {
             exercise_name: "figure-four stretch",
-            variant_name: "left side",
+            variant_names: ["left side"],
             limit_type: "time_s",
             limit_value: 30,
           },
           {
             exercise_name: "figure-four stretch",
-            variant_name: "right side",
+            variant_names: ["right side"],
             limit_type: "time_s",
             limit_value: 30,
           },
           {
             exercise_name: "pigeon pose",
-            variant_name: "left side",
+            variant_names: ["left side"],
             limit_type: "time_s",
             limit_value: 30,
           },
           {
             exercise_name: "pigeon pose",
-            variant_name: "right side",
+            variant_names: ["right side"],
             limit_type: "time_s",
             limit_value: 30,
           },
@@ -534,7 +540,7 @@ const workoutCycles: CreateWorkoutCycle[] = [
   {
     name: "default",
     description: "Your weekday grind",
-    user_name: "manu",
+    user_name: userName,
     entries: [
       {
         workout_def_name: "upper-body push",
@@ -563,20 +569,27 @@ const sql = postgres(LOCAL_DB_URL, {
 
 async function populateWorkout({
   sql,
+  userNameToId,
   exerciseNameToId,
   variantNameToId,
   workout,
 }: {
   sql: postgres.TransactionSql;
+  userNameToId: Map<string, string>;
   exerciseNameToId: Map<string, string>;
   variantNameToId: Map<string, string>;
   workout: CreateWorkout;
 }) {
+  const augmentedWorkout = {
+    ...workout,
+    user_id: mapAt(userNameToId, workout.user_name),
+  };
   const workoutDefId = z.string().parse(
     (
       await sql`
         insert into workout_defs ${sql(
-          workout,
+          augmentedWorkout,
+          "user_id",
           "name",
           "description",
         )} returning id
@@ -584,58 +597,90 @@ async function populateWorkout({
     )[0].id,
   );
 
-  const augmentedSets = workout.sets.map((s, ordinal) => ({
+  const augmentedBlocks = workout.blocks.map((s, ordinal) => ({
     ...s,
     workout_def_id: workoutDefId,
     ordinal,
   }));
 
-  const workoutSetResults = z
+  const workoutBlockResults = z
     .object({ id: z.string(), ordinal: z.number() })
     .array()
     .parse(
       await sql`
-        insert into workout_set_defs ${sql(
-          augmentedSets,
+        insert into workout_block_defs ${sql(
+          augmentedBlocks,
           "name",
           "description",
           "workout_def_id",
           "ordinal",
-          "reps",
+          "sets",
           "transition_time",
         )} returning id, ordinal
     `,
     );
-  const workoutSetOrdinalToId = new Map<number, string>(
-    workoutSetResults.map((x) => [x.ordinal, x.id]),
+  const workoutBlockOrdinalToId = new Map<number, string>(
+    workoutBlockResults.map((x) => [x.ordinal, x.id]),
   );
 
-  const augmentedExercises = workout.sets.flatMap((set, setOrdinal) => {
-    return set.exercises.map((exercise, exerciseOrdinal) => ({
+  const augmentedExercises = workout.blocks.flatMap((block, setOrdinal) => {
+    return block.exercises.map((exercise, exerciseOrdinal) => ({
       description: exercise.description,
-      workout_set_def_id: mapAt(workoutSetOrdinalToId, setOrdinal),
+      workout_block_def_id: mapAt(workoutBlockOrdinalToId, setOrdinal),
       ordinal: exerciseOrdinal,
       exercise_id: mapAt(exerciseNameToId, exercise.exercise_name),
-      variant_id: exercise.variant_name
-        ? mapAt(variantNameToId, exercise.variant_name)
+      variant_ids: exercise.variant_names
+        ? exercise.variant_names.map((name) => mapAt(variantNameToId, name))
         : null,
       limit_type: exercise.limit_type,
       limit_value: exercise.limit_value,
     }));
   });
 
-  await sql`
-        insert into workout_set_exercise_defs ${sql(
+  const workoutBlockExerciseDefResults = z
+    .object({
+      id: z.string(),
+      workout_block_def_id: z.string(),
+      ordinal: z.number(),
+    })
+    .array()
+    .parse(
+      await sql`
+        insert into workout_block_exercise_defs ${sql(
           augmentedExercises,
           "description",
-          "workout_set_def_id",
+          "workout_block_def_id",
           "ordinal",
           "exercise_id",
-          "variant_id",
           "limit_type",
           "limit_value",
+        )} returning id, workout_block_def_id, ordinal
+    `,
+    );
+  const workoutBlockExerciseInfoToId = new Map<string, string>(
+    workoutBlockExerciseDefResults.map((x) => [
+      JSON.stringify([x.workout_block_def_id, x.ordinal]),
+      x.id,
+    ]),
+  );
+
+  const workoutBlockExerciseVariantDatas = augmentedExercises.flatMap((x) =>
+    (x.variant_ids ?? []).map((variant_id) => ({
+      workout_block_exercise_def_id: mapAt(
+        workoutBlockExerciseInfoToId,
+        JSON.stringify([x.workout_block_def_id, x.ordinal]),
+      ),
+      variant_id,
+    })),
+  );
+
+  await sql`
+        insert into workout_block_exercise_variants ${sql(
+          workoutBlockExerciseVariantDatas,
+          "workout_block_exercise_def_id",
+          "variant_id",
         )}
-    `;
+  `;
 
   return workoutDefId;
 }
@@ -702,7 +747,6 @@ async function populateDb(sql: postgres.TransactionSql) {
     }
   });
 
-  const userName = "manu";
   const userId = z.string().parse(
     (
       await sql`
@@ -745,6 +789,7 @@ async function populateDb(sql: postgres.TransactionSql) {
   for (const workout of workouts) {
     const workoutDefId = await populateWorkout({
       sql,
+      userNameToId,
       exerciseNameToId,
       variantNameToId,
       workout,
