@@ -545,7 +545,8 @@ create or replace function patch_workout_instance(
     _workout_instance_id uuid,
     _description text default null,
     _started timestamp default null,
-    _finished timestamp default null
+    _finished timestamp default null,
+    _set_finished_to_null boolean default null
 )
 returns jsonb
 language plpgsql
@@ -565,7 +566,7 @@ update workout_instances
 set
     description = coalesce(_description, description),
     started = coalesce(_started, started),
-    finished = coalesce(_finished, finished)
+    finished = case when _set_finished_to_null then null else coalesce(_finished, finished) end
 where id = _workout_instance_id
 ;
 -- Return the full, denormalized workout instance.
@@ -649,6 +650,60 @@ begin
             limit _limit
         )
         select coalesce(jsonb_agg(to_jsonb(rows_to_return) order by rows_to_return.id), '[]'::jsonb) from rows_to_return
+    );
+end
+$$;
+
+-- Returns { "def": WorkoutBlockExerciseDef,
+-- "instance": WorkoutBlockExerciseInstance }[]
+create or replace function get_exercise_history(_auth_id uuid, _workout_block_exercise_instance_id uuid)
+returns jsonb
+language plpgsql
+security definer set search_path = 'public'
+as $$
+declare
+    _user_id uuid := lookup_user_id(_auth_id);
+begin
+    return (
+        with
+        found_instance as (
+            select *
+            from workout_block_exercise_instances
+            where id = _workout_block_exercise_instance_id
+        ),
+        found_def as (
+            select *
+            from workout_block_exercise_defs
+            where id in (select workout_block_exercise_def_id from found_instance)
+        ),
+        matching_instances as (
+            select workout_block_exercise_instances.*
+            from
+                workout_block_exercise_instances
+                join workout_instances on (
+                    workout_block_exercise_instances.workout_instance_id = workout_instances.id
+                )
+                join workout_block_exercise_defs on (
+                    workout_block_exercise_defs.id =
+                        workout_block_exercise_instances.workout_block_exercise_def_id
+                )
+            where
+                workout_instances.user_id = _user_id
+                and workout_block_exercise_instances.finished is not null
+                and workout_block_exercise_defs.exercise_id in (select exercise_id from found_def)
+                and get_workout_block_exercise_variants_key(workout_block_exercise_defs.id) in (
+                    select get_workout_block_exercise_variants_key(id) from found_def
+                )
+        )
+        select
+            jsonb_agg(jsonb_build_object(
+                'def', to_jsonb(workout_block_exercise_defs),
+                'instance', to_jsonb(matching_instances)))
+        from
+            matching_instances
+            join workout_block_exercise_defs on (
+                workout_block_exercise_defs.id = matching_instances.workout_block_exercise_def_id
+            )
     );
 end
 $$;

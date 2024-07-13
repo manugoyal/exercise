@@ -8,6 +8,7 @@ import { WorkoutCyclesPicker } from "./WorkoutCyclesPicker";
 import { WorkoutDefView } from "./WorkoutDefView";
 import { WorkoutInstanceView } from "./WorkoutInstanceView";
 import { WorkoutInstancePlaythrough } from "./WorkoutInstancePlaythrough";
+import { ExerciseHistoryView } from "./ExerciseHistoryView";
 
 export function EntryPoint() {
   const { connection, loginForm } = useMakeConnection();
@@ -27,7 +28,14 @@ export function EntryPoint() {
     [],
   );
   const replaceNavState = useCallback(
-    (x: NavState) => setNavStateStack((s) => s.slice(0, -1).concat([x])),
+    (x: NavState | ((current: NavState) => NavState)) => {
+      setNavStateStack((s) => {
+        const current = s.at(-1);
+        if (!current) return s;
+        const nextState = x instanceof Function ? x(current) : x;
+        return s.slice(0, -1).concat([nextState]);
+      });
+    },
     [],
   );
   const navStateContext = useMemo(
@@ -72,6 +80,8 @@ function EntryPointNav() {
     return <WorkoutInstanceView workoutInstance={navState.data} />;
   } else if (navState.status === "playthrough_workout_instance") {
     return <WorkoutInstancePlaythrough data={navState.data} />;
+  } else if (navState.status === "view_exercise_history") {
+    return <ExerciseHistoryView data={navState.data} />;
   } else {
     throw new Error(`Unknown NavState: ${JSON.stringify(navState)}`);
   }

@@ -1,12 +1,19 @@
 import { useCallback, useContext, useEffect, useMemo } from "react";
 import pluralize from "pluralize";
+import { ConnectionContext } from "./connection";
 import {
+  NavState,
   NavStateContext,
   NavStatePlaythroughWorkoutInstance,
 } from "./navState";
 import { sortWorkoutInstanceDenormalized } from "./sortedWorkoutInstanceDenormalized";
 import { bark } from "./bark";
-import { getPlaythroughExerciseInitialState } from "./playthroughTypes";
+import {
+  PlaythroughState,
+  getPlaythroughExerciseInitialState,
+} from "./playthroughTypes";
+import { useSetQuantityModal } from "./useSetQuantityModal";
+import { workoutInstanceDenormalizedSchema } from "./typespecs/denormalized_types";
 
 export function WorkoutInstancePlaythrough(props: {
   data: NavStatePlaythroughWorkoutInstance["data"];
@@ -20,7 +27,23 @@ export function WorkoutInstancePlaythrough(props: {
     () => timerEntries[timerEntries.length - 1].type === "pause",
     [timerEntries],
   );
-  const { replaceNavState } = useContext(NavStateContext);
+  const { pushNavState, replaceNavState } = useContext(NavStateContext);
+  const connection = useContext(ConnectionContext);
+
+  const updatePlaythroughState = useCallback(
+    (fn: (current: PlaythroughState) => PlaythroughState) => {
+      replaceNavState((current: NavState) => {
+        if (current.status !== "playthrough_workout_instance") {
+          throw new Error("Impossible");
+        }
+        return {
+          status: "playthrough_workout_instance",
+          data: fn(current.data),
+        };
+      });
+    },
+    [replaceNavState],
+  );
 
   const { sortedEntries, entryIdToSortedEntryIdx } = useMemo(
     () => sortWorkoutInstanceDenormalized(workout),
@@ -38,6 +61,7 @@ export function WorkoutInstancePlaythrough(props: {
     sortedEntries[entryIdx];
   const workoutBlock = workout.workout_def.blocks[workout_block_idx];
   const blockExercise = workoutBlock.exercises[block_exercise_idx];
+  const isReps = blockExercise.limit_type === "reps";
 
   const getTimeRemaining = useCallback(() => {
     const tailState = { lastEntry: timerEntries[0], elapsedTimeMs: 0 };
@@ -67,51 +91,202 @@ export function WorkoutInstancePlaythrough(props: {
     workoutBlock.transition_time,
   ]);
 
-  const advancePhase = useCallback(() => {
+  const advancePhase = useCallback(async () => {
+    bark();
     if (phase === "transition") {
-      replaceNavState({
-        status: "playthrough_workout_instance",
-        data: {
-          workout,
-          workout_block_exercise_instance_id,
-          phase: "play",
-          timerEntries: [{ type: "resume", time: new Date() }],
-        },
-      });
+      updatePlaythroughState((current: PlaythroughState) => ({
+        ...current,
+        phase: "play",
+        timerEntries: [{ type: "resume", time: new Date() }],
+      }));
     } else if (entryIdx + 1 >= sortedEntries.length) {
       // We've finished the workout.
-      replaceNavState({ status: "view_workout_instance", data: workout });
+      const newWorkoutInstance = workoutInstanceDenormalizedSchema.parse(
+        await connection.runRpc("patch_workout_instance", {
+          _auth_id: connection.auth_id,
+          _workout_instance_id: workout.id,
+          _finished: new Date(),
+        }),
+      );
+      replaceNavState((current: NavState) => {
+        if (current.status !== "playthrough_workout_instance") {
+          throw new Error("Impossible");
+        }
+        return { status: "view_workout_instance", data: newWorkoutInstance };
+      });
     } else {
-      // Advance to the next exercise.
-      replaceNavState({
-        status: "playthrough_workout_instance",
-        data: getPlaythroughExerciseInitialState({
-          workout,
+      // Advance to the next exercise. Don't wait for the metadata update of our
+      // current instance to complete before advancing.
+      (async () => {
+        try {
+          // Figure out the start time and total paused time of this exercise.
+          const tailState = { lastEntry: timerEntries[0], pausedTimeMs: 0 };
+          let startTime: Date | undefined =
+            tailState.lastEntry.type === "resume"
+              ? tailState.lastEntry.time
+              : undefined;
+          timerEntries.slice(1).forEach((e) => {
+            if (!startTime && e.type === "resume") {
+              startTime = e.time;
+            }
+            if (tailState.lastEntry.type === "pause") {
+              tailState.pausedTimeMs +=
+                e.time.getTime() - tailState.lastEntry.time.getTime();
+            }
+            tailState.lastEntry = e;
+          });
+          if (startTime === undefined) {
+            throw new Error("Impossible: no timer entries");
+          }
+          await connection.runRpc("patch_workout_block_exercise_instance", {
+            _auth_id: connection.auth_id,
+            _workout_block_exercise_instance_id: instance.id,
+            _started: startTime,
+            _finished: new Date(),
+            _paused_time_s: tailState.pausedTimeMs / 1000,
+          });
+        } catch (e) {
+          console.error(
+            "Failed to update workout exercise instance times\n",
+            e,
+          );
+        }
+      })();
+      updatePlaythroughState((current: PlaythroughState) =>
+        getPlaythroughExerciseInitialState({
+          workout: current.workout,
           entry: sortedEntries[entryIdx + 1],
         }),
-      });
+      );
     }
-    bark();
   }, [
+    connection,
     entryIdx,
+    instance.id,
     phase,
     replaceNavState,
     sortedEntries,
-    workout,
-    workout_block_exercise_instance_id,
+    timerEntries,
+    updatePlaythroughState,
+    workout.id,
   ]);
 
-  const toggleTimer = useCallback(() => {
-    replaceNavState({
-      status: "playthrough_workout_instance",
-      data: {
-        ...props.data,
-        timerEntries: timerEntries.concat([
-          { type: isPaused ? "resume" : "pause", time: new Date() },
+  const updateTimer = useCallback(
+    (mode: "pause" | "resume" | "toggle") => {
+      const entryType =
+        mode === "pause"
+          ? "pause"
+          : mode === "resume"
+            ? "resume"
+            : isPaused
+              ? "resume"
+              : "pause";
+      updatePlaythroughState((current: PlaythroughState) => ({
+        ...current,
+        timerEntries: current.timerEntries.concat([
+          { type: entryType, time: new Date() },
         ]),
+      }));
+    },
+    [isPaused, updatePlaythroughState],
+  );
+
+  const { modal: setQuantityModal, showModal: showSetQuantityModal } =
+    useSetQuantityModal(0);
+
+  const setQuantity = useCallback(
+    ({
+      quantityName,
+      initialQuantityValue,
+      quantityKey,
+    }: {
+      quantityName: string;
+      initialQuantityValue: number;
+      quantityKey: string;
+    }) => {
+      updateTimer("pause");
+      showSetQuantityModal({
+        quantityName,
+        initialQuantityValue,
+        setQuantity: async (quantityValue) => {
+          const newWorkoutInstance = workoutInstanceDenormalizedSchema.parse(
+            await connection.runRpc("patch_workout_block_exercise_instance", {
+              _auth_id: connection.auth_id,
+              _workout_block_exercise_instance_id: instance.id,
+              [quantityKey]: quantityValue,
+            }),
+          );
+          updatePlaythroughState((current: PlaythroughState) => ({
+            ...current,
+            workout: newWorkoutInstance,
+          }));
+        },
+      });
+    },
+    [
+      connection,
+      instance.id,
+      showSetQuantityModal,
+      updatePlaythroughState,
+      updateTimer,
+    ],
+  );
+
+  const setWeight = useCallback(
+    () =>
+      setQuantity({
+        quantityName: "weight (lbs)",
+        initialQuantityValue: instance.weight_lbs,
+        quantityKey: "_weight_lbs",
+      }),
+    [instance.weight_lbs, setQuantity],
+  );
+
+  const setLimitValue = useCallback(
+    () =>
+      setQuantity({
+        quantityName: isReps ? "reps" : "time (seconds)",
+        initialQuantityValue: instance.limit_value,
+        quantityKey: "_limit_value",
+      }),
+    [instance.limit_value, isReps, setQuantity],
+  );
+
+  const setExerciseNotes = useCallback(async () => {
+    updateTimer("pause");
+    const description = prompt(
+      "Enter exercise notes",
+      instance.description ?? "",
+    );
+    if (description == null) return;
+    const newWorkoutInstance = workoutInstanceDenormalizedSchema.parse(
+      await connection.runRpc("patch_workout_block_exercise_instance", {
+        _auth_id: connection.auth_id,
+        _workout_block_exercise_instance_id: instance.id,
+        _description: description,
+      }),
+    );
+    updatePlaythroughState((current: PlaythroughState) => ({
+      ...current,
+      workout: newWorkoutInstance,
+    }));
+  }, [
+    connection,
+    instance.description,
+    instance.id,
+    updatePlaythroughState,
+    updateTimer,
+  ]);
+
+  const viewExerciseHistory = useCallback(() => {
+    pushNavState({
+      status: "view_exercise_history",
+      data: {
+        def: blockExercise,
+        instance,
       },
     });
-  }, [isPaused, props.data, replaceNavState, timerEntries]);
+  }, [blockExercise, instance, pushNavState]);
 
   useEffect(() => {
     const intervalId = setInterval(() => {
@@ -120,22 +295,30 @@ export function WorkoutInstancePlaythrough(props: {
         advancePhase();
       } else {
         // Force-update the state to force a refresh of the component display.
-        replaceNavState({
-          status: "playthrough_workout_instance",
-          data: props.data,
-        });
+        updatePlaythroughState((current: PlaythroughState) => ({ ...current }));
       }
     }, 100);
     return () => clearInterval(intervalId);
-  }, [advancePhase, getTimeRemaining, phase, props.data, replaceNavState]);
+  }, [
+    advancePhase,
+    getTimeRemaining,
+    phase,
+    props.data,
+    replaceNavState,
+    updatePlaythroughState,
+  ]);
 
   // Don't wrap this in a useMemo so that it's recomputed on every re-render.
   const phaseText = [
     phase === "transition" ? "Get Ready" : "Go",
-    blockExercise.limit_type === "reps"
-      ? `${pluralize("Rep", instance.limit_value, true)}`
-      : `${pluralize("Second", getTimeRemaining(), true)}`,
-  ].join(" - ");
+    instance.weight_lbs ? `${pluralize("lbs", instance.weight_lbs, true)}` : "",
+    blockExercise.limit_type === "reps" &&
+      `${pluralize("Rep", instance.limit_value, true)}`,
+    (blockExercise.limit_type === "time_s" || phase === "transition") &&
+      `${pluralize("Second", getTimeRemaining(), true)}`,
+  ]
+    .filter((x) => !!x)
+    .join(" - ");
 
   const blockExerciseDescription = [
     blockExercise.description,
@@ -146,43 +329,67 @@ export function WorkoutInstancePlaythrough(props: {
     .join("\n");
 
   return (
-    <div>
-      <h1>{phaseText}</h1>
-      <h2>
-        {[
-          blockExercise.exercise.name,
-          ...blockExercise.variants.map((x) => x.name),
-        ]
-          .filter((x) => !!x)
-          .join(" - ")}
-      </h2>
-      {blockExerciseDescription ? <p>{blockExerciseDescription}</p> : null}
-      {instance.description ? (
-        <p>{`Instance notes: ${instance.description}`}</p>
-      ) : null}
-      <h3>
-        {" "}
-        {[
-          workout.workout_def.name,
-          workoutBlock.name ?? `block ${workout_block_idx + 1}`,
-          `set ${instance.set_num} / ${workoutBlock.sets}`,
-        ].join(" - ")}{" "}
-      </h3>
-      <p>
-        {[
-          workoutBlock.description &&
-            `Block description: ${workoutBlock.description}`,
-          workout.workout_def.description &&
-            `Workout description: ${workout.workout_def.description}`,
-        ]
-          .filter((x) => !!x)
-          .join("\n")}
-      </p>
-      <br />
-      <br />
-      <button onClick={advancePhase}> Next exercise </button>
-      <br />
-      <button onClick={toggleTimer}> {isPaused ? "Resume" : "Pause"} </button>
-    </div>
+    <>
+      {setQuantityModal}
+      <div>
+        <h1>{phaseText}</h1>
+        <h2>
+          {[
+            blockExercise.exercise.name,
+            ...blockExercise.variants.map((x) => x.name),
+          ]
+            .filter((x) => !!x)
+            .join(" - ")}
+        </h2>
+        {blockExerciseDescription ? <p>{blockExerciseDescription}</p> : null}
+        {instance.description ? (
+          <p>{`Instance notes: ${instance.description}`}</p>
+        ) : null}
+        <h3>
+          {" "}
+          {[
+            workout.workout_def.name,
+            workoutBlock.name ?? `block ${workout_block_idx + 1}`,
+            `set ${instance.set_num} / ${workoutBlock.sets}`,
+          ].join(" - ")}{" "}
+        </h3>
+        <p>
+          {[
+            workoutBlock.description &&
+              `Block description: ${workoutBlock.description}`,
+            workout.workout_def.description &&
+              `Workout description: ${workout.workout_def.description}`,
+          ]
+            .filter((x) => !!x)
+            .join("\n")}
+        </p>
+        <br />
+        <br />
+        <button onClick={() => updateTimer("toggle")}>
+          {" "}
+          {isPaused ? "Resume" : "Pause"}{" "}
+        </button>
+        <br />
+        <button onClick={advancePhase}> Next exercise </button>
+        <br />
+        <br />
+        <br />
+        <br />
+        <button onClick={setWeight}> Set weight </button>
+        <br />
+        <button onClick={setLimitValue}>
+          {" "}
+          Set {isReps ? "reps" : "time"}{" "}
+        </button>
+        <br />
+        <button onClick={setExerciseNotes}> Set exercise notes </button>
+        <br />
+        <button onClick={viewExerciseHistory}> View exercise history </button>
+        <br />
+        <br />
+        <br />
+        <br />
+      </div>
+    </>
   );
 }

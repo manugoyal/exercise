@@ -22,6 +22,13 @@ export type NavStatePlaythroughWorkoutInstance = {
   status: "playthrough_workout_instance";
   data: PlaythroughState;
 };
+export type NavStateViewExerciseHistory = {
+  status: "view_exercise_history";
+  data: {
+    instance: WorkoutInstanceDenormalized["block_exercises"][number];
+    def: WorkoutDefDenormalized["blocks"][number]["exercises"][number];
+  };
+};
 
 export type NavState =
   | NavStatePostLogin
@@ -29,13 +36,14 @@ export type NavState =
   | NavStatePickPastWorkoutInstances
   | NavStateViewWorkoutDef
   | NavStateViewWorkoutInstance
-  | NavStatePlaythroughWorkoutInstance;
+  | NavStatePlaythroughWorkoutInstance
+  | NavStateViewExerciseHistory;
 
 export type NavStateContextT = {
   navStateStack: NavState[];
   pushNavState: (x: NavState) => void;
   popNavState: () => void;
-  replaceNavState: (x: NavState) => void;
+  replaceNavState: (x: NavState | ((current: NavState) => NavState)) => void;
 };
 
 export const NavStateContext = createContext<NavStateContextT>({

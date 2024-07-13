@@ -1,4 +1,4 @@
-import { useCallback, useContext } from "react";
+import { useCallback, useContext, useEffect, useMemo } from "react";
 
 import { ConnectionContext } from "./connection";
 import { NavStateContext } from "./navState";
@@ -9,7 +9,10 @@ import {
 import { NestedObjectPicker } from "./NestedObjectPicker";
 import { useWorkoutToNestedObject } from "./useWorkoutToNestedObject";
 import { sortWorkoutInstanceDenormalized } from "./sortedWorkoutInstanceDenormalized";
-import { getPlaythroughExerciseInitialState } from "./playthroughTypes";
+import {
+  PlaythroughExerciseInitialStateEntry,
+  getPlaythroughExerciseInitialState,
+} from "./playthroughTypes";
 
 export function WorkoutInstanceView({
   workoutInstance,
@@ -26,12 +29,43 @@ export function WorkoutInstanceView({
     [replaceNavState],
   );
 
-  const { nestedObject, modals } = useWorkoutToNestedObject({
-    type: "workout_instance",
-    data: workoutInstance,
-    replaceData,
-    connection,
-  });
+  const { sortedEntries } = useMemo(
+    () => sortWorkoutInstanceDenormalized(workoutInstance),
+    [workoutInstance],
+  );
+
+  // Determine the next exercise in the workout. This is defined as the exercise
+  // after the last-finished exercise instance.
+  const nextExerciseIdx = useMemo(() => {
+    const lastFinishedExerciseIdx = sortedEntries.reduce(
+      (latestIdx, entry, entryIdx) => {
+        if (!entry.instance.finished) {
+          return latestIdx;
+        } else if (latestIdx === undefined) {
+          return entryIdx;
+        } else {
+          const latestEntryFinished =
+            sortedEntries[latestIdx].instance.finished;
+          if (!latestEntryFinished) {
+            throw new Error("Impossible");
+          }
+          return latestEntryFinished?.getTime() <
+            entry.instance.finished.getTime()
+            ? entryIdx
+            : latestIdx;
+        }
+      },
+      undefined as number | undefined,
+    );
+    if (
+      lastFinishedExerciseIdx === undefined ||
+      lastFinishedExerciseIdx + 1 >= sortedEntries.length
+    ) {
+      return 0;
+    } else {
+      return lastFinishedExerciseIdx + 1;
+    }
+  }, [sortedEntries]);
 
   const handleSetDescription = useCallback(async () => {
     const description = prompt(
@@ -75,19 +109,67 @@ export function WorkoutInstanceView({
     replaceData(data);
   }, [connection, replaceData, workoutInstance.id]);
 
-  const handlePlaythrough = useCallback(() => {
-    const { sortedEntries } = sortWorkoutInstanceDenormalized(workoutInstance);
+  const handleStartWorkout = useCallback(async () => {
     if (!sortedEntries.length) {
       throw new Error("Cannot start workout: it has no exercises");
+    }
+    const newWorkoutInstance = workoutInstanceDenormalizedSchema.parse(
+      await connection.runRpc("patch_workout_instance", {
+        _auth_id: connection.auth_id,
+        _workout_instance_id: workoutInstance.id,
+        _started: new Date(),
+        _set_finished_to_null: true,
+      }),
+    );
+    pushNavState({
+      status: "playthrough_workout_instance",
+      data: getPlaythroughExerciseInitialState({
+        workout: newWorkoutInstance,
+        entry: sortedEntries[0],
+      }),
+    });
+  }, [connection, pushNavState, sortedEntries, workoutInstance.id]);
+
+  const handleResumeWorkout = useCallback(() => {
+    if (!sortedEntries.length) {
+      throw new Error("Cannot resume workout: it has no exercises");
     }
     pushNavState({
       status: "playthrough_workout_instance",
       data: getPlaythroughExerciseInitialState({
         workout: workoutInstance,
-        entry: sortedEntries[0],
+        entry: sortedEntries[nextExerciseIdx],
       }),
     });
-  }, [pushNavState, workoutInstance]);
+  }, [nextExerciseIdx, pushNavState, sortedEntries, workoutInstance]);
+
+  const resumeWorkoutAtInstance = useCallback(
+    (entry: PlaythroughExerciseInitialStateEntry) => {
+      pushNavState({
+        status: "playthrough_workout_instance",
+        data: getPlaythroughExerciseInitialState({
+          workout: workoutInstance,
+          entry,
+        }),
+      });
+    },
+    [pushNavState, workoutInstance],
+  );
+
+  useEffect(() => {
+    handleReload();
+  }, [handleReload]);
+
+  const canResume = workoutInstance.started && !workoutInstance.finished;
+
+  const { nestedObject, modals } = useWorkoutToNestedObject({
+    type: "workout_instance",
+    data: workoutInstance,
+    replaceData,
+    resumeWorkoutAtInstance: canResume ? resumeWorkoutAtInstance : undefined,
+    autoExpandEntry: canResume ? sortedEntries[nextExerciseIdx] : undefined,
+    connection,
+  });
 
   return (
     <>
@@ -95,12 +177,22 @@ export function WorkoutInstanceView({
       <div>
         <NestedObjectPicker nestedObject={nestedObject} />
         <br />
-        <button onClick={handlePlaythrough}> Start workout! </button>
+        {canResume ? (
+          <button onClick={handleResumeWorkout}> Resume workout! </button>
+        ) : (
+          <button onClick={handleStartWorkout}>
+            {" "}
+            {workoutInstance.started ? "Restart" : "Start"} workout!{" "}
+          </button>
+        )}
         <br />
         <button onClick={handleSetDescription}> Set instance notes </button>
         <br />
         {workoutInstance.started && !workoutInstance.finished && (
-          <button onClick={handleSetFinished}> Mark finished </button>
+          <>
+            <button onClick={handleSetFinished}> Mark finished </button>
+            <br />
+          </>
         )}
         <button onClick={handleReload}> Reload </button>
         <br />

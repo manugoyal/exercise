@@ -13,6 +13,7 @@ export type NestedObject = (
   text: string;
   subtext?: string;
   highlight?: boolean;
+  expandIfHighlighted?: boolean;
 };
 
 function makePathKey(path: number[]) {
@@ -48,7 +49,9 @@ function displayNestedObject({
   const buttonText =
     nestedObject.kind === "node" ? (isExpanded ? "Close" : "Open") : "Select";
   const subComponents =
-    nestedObject.kind === "node" && isExpanded ? (
+    nestedObject.kind === "node" &&
+    (isExpanded ||
+      (nestedObject.highlight && nestedObject.expandIfHighlighted)) ? (
       <ul>
         {nestedObject.children.map((child, idx) => (
           <li key={`${idx}`}>

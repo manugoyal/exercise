@@ -61,7 +61,7 @@ export const workoutBlockExerciseDefSchema = z.object({
   limit_type: exerciseLimitTypeSchema,
   limit_value: z.number(),
 });
-export type WorkoutSetExerciseDef = z.infer<
+export type WorkoutBlockExerciseDef = z.infer<
   typeof workoutBlockExerciseDefSchema
 >;
 
@@ -102,7 +102,7 @@ export const workoutBlockExerciseInstanceSchema = z.object({
   finished: datetimeSchema.nullish(),
   paused_time_s: z.number().nullish(),
 });
-export type WorkoutSetExerciseInstance = z.infer<
+export type WorkoutBlockExerciseInstance = z.infer<
   typeof workoutBlockExerciseInstanceSchema
 >;
 
