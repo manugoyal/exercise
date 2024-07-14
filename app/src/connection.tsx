@@ -1,6 +1,7 @@
 import { createContext, useState } from "react";
 import { SupabaseClient, createClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { bark } from "./bark";
 
 export type Connection = {
   client: SupabaseClient;
@@ -28,6 +29,7 @@ export function useMakeConnection() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    bark();
     if (!(supabaseUrl && username && password)) {
       throw new Error("All fields must be filled");
     }

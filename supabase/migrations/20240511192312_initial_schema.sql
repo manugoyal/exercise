@@ -696,9 +696,9 @@ begin
                 )
         )
         select
-            jsonb_agg(jsonb_build_object(
+            coalesce(jsonb_agg(jsonb_build_object(
                 'def', to_jsonb(workout_block_exercise_defs),
-                'instance', to_jsonb(matching_instances)))
+                'instance', to_jsonb(matching_instances))), '[]'::jsonb)
         from
             matching_instances
             join workout_block_exercise_defs on (

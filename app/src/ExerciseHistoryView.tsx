@@ -9,6 +9,7 @@ import {
   ExerciseHistoryEntry,
   exerciseHistoryEntrySchema,
 } from "./typespecs/app_types";
+import { Loading } from "./Loading";
 
 export function ExerciseHistoryView(props: {
   data: {
@@ -99,18 +100,28 @@ export function ExerciseHistoryView(props: {
     [def.exercise.description, def.variants],
   );
 
+  const historyEntriesUl = (
+    <ul>
+      {historyEntries.map((x, idx) => (
+        <li key={idx}>
+          <p>{x.text}</p>
+          {x.subtext ? <small>{x.subtext}</small> : null}
+        </li>
+      ))}
+    </ul>
+  );
+
   return (
     <>
       <h1> {titleText} </h1>
       {titleSubtext && <p> {titleSubtext} </p>}
-      <ul>
-        {historyEntries.map((x, idx) => (
-          <li key={idx}>
-            <p>{x.text}</p>
-            {x.subtext ? <small>{x.subtext}</small> : null}
-          </li>
-        ))}
-      </ul>
+      {exerciseHistory === undefined ? (
+        <Loading />
+      ) : historyEntries.length === 0 ? (
+        <div> No exercise history </div>
+      ) : (
+        historyEntriesUl
+      )}
       <br />
       <button onClick={() => setExerciseHistory(undefined)}> Reload </button>
     </>

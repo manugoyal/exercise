@@ -426,12 +426,10 @@ export function useWorkoutToNestedObject({
                 autoExpandEntry &&
                 instanceEntry &&
                 instanceEntry.id === autoExpandEntry.instance.id,
-              expandIfHighlighted: true,
             };
           }),
           highlight:
             autoExpandEntry && blockIdx === autoExpandEntry.workout_block_idx,
-          expandIfHighlighted: true,
         }),
       ),
     }),

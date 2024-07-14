@@ -279,6 +279,7 @@ export function WorkoutInstancePlaythrough(props: {
   ]);
 
   const viewExerciseHistory = useCallback(() => {
+    updateTimer("pause");
     pushNavState({
       status: "view_exercise_history",
       data: {
@@ -286,7 +287,7 @@ export function WorkoutInstancePlaythrough(props: {
         instance,
       },
     });
-  }, [blockExercise, instance, pushNavState]);
+  }, [blockExercise, instance, pushNavState, updateTimer]);
 
   useEffect(() => {
     const intervalId = setInterval(() => {
@@ -311,11 +312,8 @@ export function WorkoutInstancePlaythrough(props: {
   // Don't wrap this in a useMemo so that it's recomputed on every re-render.
   const phaseText = [
     phase === "transition" ? "Get Ready" : "Go",
-    instance.weight_lbs ? `${pluralize("lbs", instance.weight_lbs, true)}` : "",
-    blockExercise.limit_type === "reps" &&
-      `${pluralize("Rep", instance.limit_value, true)}`,
-    (blockExercise.limit_type === "time_s" || phase === "transition") &&
-      `${pluralize("Second", getTimeRemaining(), true)}`,
+    blockExercise.exercise.name,
+    ...blockExercise.variants.map((x) => x.name),
   ]
     .filter((x) => !!x)
     .join(" - ");
@@ -335,8 +333,13 @@ export function WorkoutInstancePlaythrough(props: {
         <h1>{phaseText}</h1>
         <h2>
           {[
-            blockExercise.exercise.name,
-            ...blockExercise.variants.map((x) => x.name),
+            instance.weight_lbs
+              ? `${pluralize("lbs", instance.weight_lbs, true)}`
+              : "",
+            blockExercise.limit_type === "reps" &&
+              `${pluralize("Rep", instance.limit_value, true)}`,
+            (blockExercise.limit_type === "time_s" || phase === "transition") &&
+              `${pluralize("Second", getTimeRemaining(), true)}`,
           ]
             .filter((x) => !!x)
             .join(" - ")}

@@ -561,12 +561,6 @@ const workoutCycles: CreateWorkoutCycle[] = [
   },
 ];
 
-const sql = postgres(LOCAL_DB_URL, {
-  transform: {
-    undefined: null,
-  },
-});
-
 async function populateWorkout({
   sql,
   userNameToId,
@@ -808,6 +802,13 @@ async function populateDb(sql: postgres.TransactionSql) {
 }
 
 async function main() {
+  const scriptArgs = process.argv.slice(2);
+  const dbUrl = scriptArgs.length >= 1 ? scriptArgs[0] : LOCAL_DB_URL;
+  const sql = postgres(dbUrl, {
+    transform: {
+      undefined: null,
+    },
+  });
   try {
     await sql.begin(async (sql) => {
       await populateDb(sql);

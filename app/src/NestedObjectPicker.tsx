@@ -13,7 +13,6 @@ export type NestedObject = (
   text: string;
   subtext?: string;
   highlight?: boolean;
-  expandIfHighlighted?: boolean;
 };
 
 function makePathKey(path: number[]) {
@@ -49,9 +48,7 @@ function displayNestedObject({
   const buttonText =
     nestedObject.kind === "node" ? (isExpanded ? "Close" : "Open") : "Select";
   const subComponents =
-    nestedObject.kind === "node" &&
-    (isExpanded ||
-      (nestedObject.highlight && nestedObject.expandIfHighlighted)) ? (
+    nestedObject.kind === "node" && isExpanded ? (
       <ul>
         {nestedObject.children.map((child, idx) => (
           <li key={`${idx}`}>
@@ -80,14 +77,33 @@ function displayNestedObject({
   );
 }
 
+function initialExpandedPaths(
+  nestedObject: NestedObject,
+): Map<string, boolean> {
+  const ret = new Map<string, boolean>([[makePathKey([0]), true]]);
+  function helper(nestedObject: NestedObject, currentPath: number[]) {
+    if (nestedObject.highlight) {
+      ret.set(makePathKey(currentPath), true);
+    }
+    if (nestedObject.kind === "node") {
+      nestedObject.children.forEach((child, idx) => {
+        helper(child, currentPath.concat([idx]));
+      });
+    }
+  }
+  helper(nestedObject, [0]);
+  return ret;
+}
+
 export function NestedObjectPicker({
   nestedObject,
 }: {
   nestedObject: NestedObject;
 }) {
   const [expandedPaths, setExpandedPaths] = useState(
-    new Map<string, boolean>([[makePathKey([0]), true]]),
+    initialExpandedPaths(nestedObject),
   );
+
   return displayNestedObject({
     nestedObject,
     currentPath: [0],
