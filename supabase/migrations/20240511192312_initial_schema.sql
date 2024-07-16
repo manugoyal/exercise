@@ -91,7 +91,7 @@ create table workout_block_exercise_variants (
   primary key (workout_block_exercise_def_id, variant_id)
 );
 
-alter table workout_block_exercise_defs enable row level security;
+alter table workout_block_exercise_variants enable row level security;
 
 create table workout_instances (
     id uuid not null primary key default gen_random_uuid(),
@@ -469,7 +469,10 @@ last_matching_workout_instance as (
     limit 1
 ),
 last_matching_workout_block_exercise_instances as (
-    select workout_block_exercise_instances.*
+    select
+        workout_block_exercise_instances.workout_block_exercise_def_id,
+        workout_block_exercise_instances.set_num,
+        workout_block_exercise_instances.weight_lbs
     from
         workout_block_exercise_instances
         join last_matching_workout_instance on (
@@ -521,6 +524,8 @@ prefilled_instances as (
         left join last_matching_workout_block_exercise_instances on (
             last_matching_workout_block_exercise_instances.workout_block_exercise_def_id =
                 workout_block_exercise_defs.id
+            and last_matching_workout_block_exercise_instances.set_num =
+                set_num_value
         )
         left join last_matching_exercise_variant_instances on (
             last_matching_exercise_variant_instances.exercise_id =
@@ -528,6 +533,8 @@ prefilled_instances as (
             and last_matching_exercise_variant_instances.variants_key =
                 get_workout_block_exercise_variants_key(workout_block_exercise_defs.id)
         )
+    where
+        workout_block_defs.workout_def_id = _workout_def_id
 )
 insert into workout_block_exercise_instances (
     workout_instance_id, workout_block_exercise_def_id, set_num, weight_lbs,
