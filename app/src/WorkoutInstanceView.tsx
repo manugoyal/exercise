@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useMemo } from "react";
+import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 import { ConnectionContext } from "./connection";
 import { NavStateContext } from "./navState";
@@ -8,35 +8,57 @@ import {
 } from "./typespecs/denormalized_types";
 import { NestedObjectPicker } from "./NestedObjectPicker";
 import { useWorkoutToNestedObject } from "./useWorkoutToNestedObject";
-import { sortWorkoutInstanceDenormalized } from "./sortedWorkoutInstanceDenormalized";
+import {
+  SortedWorkoutInstanceDenormalized,
+  SortedWorkoutInstanceUndefined,
+  sortWorkoutInstanceDenormalized,
+} from "./sortedWorkoutInstanceDenormalized";
 import {
   PlaythroughExerciseInitialStateEntry,
   getPlaythroughExerciseInitialState,
 } from "./playthroughTypes";
+import { Loading } from "./Loading";
 
 export function WorkoutInstanceView({
-  workoutInstance,
+  workoutInstanceId,
 }: {
-  workoutInstance: WorkoutInstanceDenormalized;
+  workoutInstanceId: string;
 }) {
-  const { pushNavState, replaceNavState } = useContext(NavStateContext);
+  const { pushNavState } = useContext(NavStateContext);
   const connection = useContext(ConnectionContext);
 
-  const replaceData = useCallback(
-    (data: WorkoutInstanceDenormalized) => {
-      replaceNavState({ status: "view_workout_instance", data });
-    },
-    [replaceNavState],
-  );
+  const [workoutInstance, setWorkoutInstance] = useState<
+    WorkoutInstanceDenormalized | undefined
+  >(undefined);
+
+  useEffect(() => {
+    if (workoutInstance !== undefined) {
+      return;
+    }
+
+    async function getWorkoutInstance() {
+      setWorkoutInstance(
+        workoutInstanceDenormalizedSchema.parse(
+          await connection.runRpc("get_workout_instance", {
+            _auth_id: connection.auth_id,
+            _id: workoutInstanceId,
+          }),
+        ),
+      );
+    }
+    getWorkoutInstance();
+  }, [connection, workoutInstance, workoutInstanceId]);
 
   const { sortedEntries } = useMemo(
-    () => sortWorkoutInstanceDenormalized(workoutInstance),
+    (): SortedWorkoutInstanceDenormalized | SortedWorkoutInstanceUndefined =>
+      workoutInstance ? sortWorkoutInstanceDenormalized(workoutInstance) : {},
     [workoutInstance],
   );
 
   // Determine the next exercise in the workout. This is defined as the exercise
   // after the last-finished exercise instance.
-  const nextExerciseIdx = useMemo(() => {
+  const nextExerciseIdx = useMemo((): number | undefined => {
+    if (!sortedEntries) return undefined;
     const lastFinishedExerciseIdx = sortedEntries.reduce(
       (latestIdx, entry, entryIdx) => {
         if (!entry.instance.finished) {
@@ -68,48 +90,47 @@ export function WorkoutInstanceView({
   }, [sortedEntries]);
 
   const handleSetDescription = useCallback(async () => {
+    if (!workoutInstance) {
+      alert("Workout has not loaded");
+      return;
+    }
     const description = prompt(
       "Enter instance notes",
       workoutInstance.description ?? "",
     );
     if (description == null) return;
-    const data = workoutInstanceDenormalizedSchema.parse(
-      await connection.runRpc("patch_workout_instance", {
-        _auth_id: connection.auth_id,
-        _workout_instance_id: workoutInstance.id,
-        _description: description,
-      }),
+    setWorkoutInstance(
+      workoutInstanceDenormalizedSchema.parse(
+        await connection.runRpc("patch_workout_instance", {
+          _auth_id: connection.auth_id,
+          _workout_instance_id: workoutInstance.id,
+          _description: description,
+        }),
+      ),
     );
-    replaceData(data);
-  }, [
-    connection,
-    replaceData,
-    workoutInstance.description,
-    workoutInstance.id,
-  ]);
+  }, [connection, workoutInstance]);
 
   const handleSetFinished = useCallback(async () => {
-    const data = workoutInstanceDenormalizedSchema.parse(
-      await connection.runRpc("patch_workout_instance", {
-        _auth_id: connection.auth_id,
-        _workout_instance_id: workoutInstance.id,
-        _finished: new Date(),
-      }),
+    if (!workoutInstance) {
+      alert("Workout has not loaded");
+      return;
+    }
+    setWorkoutInstance(
+      workoutInstanceDenormalizedSchema.parse(
+        await connection.runRpc("patch_workout_instance", {
+          _auth_id: connection.auth_id,
+          _workout_instance_id: workoutInstance.id,
+          _finished: new Date(),
+        }),
+      ),
     );
-    replaceData(data);
-  }, [connection, replaceData, workoutInstance.id]);
-
-  const handleReload = useCallback(async () => {
-    const data = workoutInstanceDenormalizedSchema.parse(
-      await connection.runRpc("get_workout_instance", {
-        _auth_id: connection.auth_id,
-        _id: workoutInstance.id,
-      }),
-    );
-    replaceData(data);
-  }, [connection, replaceData, workoutInstance.id]);
+  }, [connection, workoutInstance]);
 
   const handleStartWorkout = useCallback(async () => {
+    if (!(workoutInstance && sortedEntries)) {
+      alert("Workout has not loaded");
+      return;
+    }
     if (!sortedEntries.length) {
       throw new Error("Cannot start workout: it has no exercises");
     }
@@ -123,55 +144,69 @@ export function WorkoutInstanceView({
     );
     pushNavState({
       status: "playthrough_workout_instance",
-      data: getPlaythroughExerciseInitialState({
-        workout: newWorkoutInstance,
-        entry: sortedEntries[0],
-      }),
+      data: {
+        playthroughState: getPlaythroughExerciseInitialState({
+          workout: newWorkoutInstance,
+          entry: sortedEntries[0],
+        }),
+      },
     });
-  }, [connection, pushNavState, sortedEntries, workoutInstance.id]);
+  }, [connection, pushNavState, sortedEntries, workoutInstance]);
 
   const handleResumeWorkout = useCallback(() => {
+    if (!(workoutInstance && sortedEntries && nextExerciseIdx !== undefined)) {
+      alert("Workout has not loaded");
+      return;
+    }
     if (!sortedEntries.length) {
       throw new Error("Cannot resume workout: it has no exercises");
     }
     pushNavState({
       status: "playthrough_workout_instance",
-      data: getPlaythroughExerciseInitialState({
-        workout: workoutInstance,
-        entry: sortedEntries[nextExerciseIdx],
-      }),
+      data: {
+        playthroughState: getPlaythroughExerciseInitialState({
+          workout: workoutInstance,
+          entry: sortedEntries[nextExerciseIdx],
+        }),
+      },
     });
   }, [nextExerciseIdx, pushNavState, sortedEntries, workoutInstance]);
 
   const resumeWorkoutAtInstance = useCallback(
     (entry: PlaythroughExerciseInitialStateEntry) => {
+      if (!workoutInstance) {
+        alert("Workout has not loaded");
+        return;
+      }
       pushNavState({
         status: "playthrough_workout_instance",
-        data: getPlaythroughExerciseInitialState({
-          workout: workoutInstance,
-          entry,
-        }),
+        data: {
+          playthroughState: getPlaythroughExerciseInitialState({
+            workout: workoutInstance,
+            entry,
+          }),
+        },
       });
     },
     [pushNavState, workoutInstance],
   );
 
-  useEffect(() => {
-    handleReload();
-  }, [handleReload]);
-
-  const canResume = workoutInstance.started && !workoutInstance.finished;
+  const canResume =
+    workoutInstance && workoutInstance.started && !workoutInstance.finished;
 
   const { nestedObject, modals } = useWorkoutToNestedObject({
     type: "workout_instance",
     data: workoutInstance,
-    replaceData,
+    replaceData: setWorkoutInstance,
     resumeWorkoutAtInstance: canResume ? resumeWorkoutAtInstance : undefined,
-    autoExpandEntry: canResume ? sortedEntries[nextExerciseIdx] : undefined,
+    autoExpandEntry:
+      canResume && sortedEntries && nextExerciseIdx !== undefined
+        ? sortedEntries[nextExerciseIdx]
+        : undefined,
     connection,
   });
 
-  return (
+  return nestedObject && workoutInstance ? (
     <>
       {modals}
       <div>
@@ -194,9 +229,11 @@ export function WorkoutInstanceView({
             <br />
           </>
         )}
-        <button onClick={handleReload}> Reload </button>
+        <button onClick={() => setWorkoutInstance(undefined)}> Reload </button>
         <br />
       </div>
     </>
+  ) : (
+    <Loading />
   );
 }

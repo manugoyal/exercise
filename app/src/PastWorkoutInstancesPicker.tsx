@@ -1,11 +1,10 @@
 import { useContext, useEffect, useMemo, useState } from "react";
 
-import { Connection, ConnectionContext } from "./connection";
+import { ConnectionContext } from "./connection";
 import {
   pastWorkoutInstanceSchema,
   PastWorkoutInstance,
 } from "./typespecs/app_types";
-import { workoutInstanceDenormalizedSchema } from "./typespecs/denormalized_types";
 import { Loading } from "./Loading";
 import { NestedObject, NestedObjectPicker } from "./NestedObjectPicker";
 import { NavState, NavStateContext } from "./navState";
@@ -18,11 +17,9 @@ import {
 
 function convertPastWorkoutInstancesToNestedObject({
   pastWorkoutInstances,
-  connection,
   pushNavState,
 }: {
   pastWorkoutInstances: PastWorkoutInstance[];
-  connection: Connection;
   pushNavState: (x: NavState) => void;
 }): NestedObject {
   // Display in two sections: incomplete workouts (started but not finished,
@@ -54,13 +51,10 @@ function convertPastWorkoutInstancesToNestedObject({
         .filter((x) => !!x)
         .join("\n"),
       action: async () => {
-        const resp = workoutInstanceDenormalizedSchema.parse(
-          await connection.runRpc("get_workout_instance", {
-            _auth_id: connection.auth_id,
-            _id: x.id,
-          }),
-        );
-        pushNavState({ status: "view_workout_instance", data: resp });
+        pushNavState({
+          status: "view_workout_instance",
+          data: { workoutInstanceId: x.id },
+        });
       },
     };
   }
@@ -113,10 +107,9 @@ export function PastWorkoutInstancesPicker() {
       pastWorkoutInstances &&
       convertPastWorkoutInstancesToNestedObject({
         pastWorkoutInstances,
-        connection,
         pushNavState,
       }),
-    [connection, pastWorkoutInstances, pushNavState],
+    [pastWorkoutInstances, pushNavState],
   );
 
   if (!pastWorkoutInstancesNestedObject) {

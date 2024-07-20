@@ -15,22 +15,22 @@ export const ConnectionContext = createContext<Connection>({
   runRpc: async () => {},
 });
 
+const SupabaseUrl =
+  process.env.REACT_APP_SUPABASE_URL ??
+  `http://${window.location.hostname}:54321`;
+
 export function useMakeConnection() {
   const [connection, setConnection] = useState<Connection | undefined>(
     undefined,
   );
 
-  const [supabaseUrl, setSupabaseUrl] = useState<string>(
-    process.env.REACT_APP_SUPABASE_URL ??
-      `http://${window.location.hostname}:54321`,
-  );
   const [username, setUsername] = useState<string>("");
   const [password, setPassword] = useState<string>("");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     bark();
-    if (!(supabaseUrl && username && password)) {
+    if (!(username && password)) {
       throw new Error("All fields must be filled");
     }
     if (!process.env.REACT_APP_SUPABASE_ANON_KEY) {
@@ -38,7 +38,7 @@ export function useMakeConnection() {
     }
 
     const client = createClient(
-      supabaseUrl,
+      SupabaseUrl,
       process.env.REACT_APP_SUPABASE_ANON_KEY,
     );
     const runRpc = async (fn: string, args?: unknown) => {
@@ -65,16 +65,6 @@ export function useMakeConnection() {
 
   const loginForm = (
     <form onSubmit={handleSubmit}>
-      <label>
-        Supabase URL:
-        <input
-          type="url"
-          id="supabaseUrl"
-          value={supabaseUrl}
-          onChange={eventSetter(setSupabaseUrl)}
-        />
-      </label>
-      <br />
       <label>
         Username:
         <input

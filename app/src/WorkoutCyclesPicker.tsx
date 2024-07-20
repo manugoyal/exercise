@@ -68,7 +68,7 @@ function convertWorkoutCyclesToNestedObject({
             action: () => {
               pushNavState({
                 status: "view_workout_def",
-                data: entry.workout_def,
+                data: { workoutDefId: entry.workout_def.id },
               });
             },
           }),

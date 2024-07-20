@@ -11,13 +11,13 @@ import {
 } from "./typespecs/app_types";
 import { Loading } from "./Loading";
 
-export function ExerciseHistoryView(props: {
-  data: {
-    def: WorkoutDefDenormalized["blocks"][number]["exercises"][number];
-    instance: WorkoutInstanceDenormalized["block_exercises"][number];
-  };
+export function ExerciseHistoryView({
+  def,
+  instance,
+}: {
+  def: WorkoutDefDenormalized["blocks"][number]["exercises"][number];
+  instance: WorkoutInstanceDenormalized["block_exercises"][number];
 }) {
-  const { def, instance } = props.data;
   const connection = useContext(ConnectionContext);
 
   const [exerciseHistory, setExerciseHistory] = useState<

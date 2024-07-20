@@ -107,24 +107,6 @@ function collectInstancesToSet({
   return ret;
 }
 
-async function refetchWorkoutInstance({
-  id,
-  replaceData,
-  connection,
-}: {
-  id: string;
-  replaceData: (data: WorkoutInstanceDenormalized) => void;
-  connection: Connection;
-}): Promise<void> {
-  const newWorkoutInstance = workoutInstanceDenormalizedSchema.parse(
-    await connection.runRpc("get_workout_instance", {
-      _auth_id: connection.auth_id,
-      _id: id,
-    }),
-  );
-  replaceData(newWorkoutInstance);
-}
-
 async function runSetQuantity({
   workoutInstance,
   instanceEntry,
@@ -153,7 +135,14 @@ async function runSetQuantity({
       }),
     ),
   );
-  refetchWorkoutInstance({ id: workoutInstance.id, replaceData, connection });
+  replaceData(
+    workoutInstanceDenormalizedSchema.parse(
+      await connection.runRpc("get_workout_instance", {
+        _auth_id: connection.auth_id,
+        _id: workoutInstance.id,
+      }),
+    ),
+  );
 }
 
 function enumerateBlockExercises(
@@ -186,12 +175,12 @@ export function useWorkoutToNestedObject({
 }: (
   | {
       type: "workout_def";
-      data: WorkoutDefDenormalized;
+      data: WorkoutDefDenormalized | undefined;
       replaceData?: undefined;
     }
   | {
       type: "workout_instance";
-      data: WorkoutInstanceDenormalized;
+      data: WorkoutInstanceDenormalized | undefined;
       replaceData: (data: WorkoutInstanceDenormalized) => void;
     }
 ) & {
@@ -201,19 +190,19 @@ export function useWorkoutToNestedObject({
   autoExpandEntry?: PlaythroughExerciseInitialStateEntry;
   connection?: Connection;
 }): {
-  nestedObject: NestedObject;
+  nestedObject: NestedObject | undefined;
   modals: React.ReactNode[];
 } {
   const { pushNavState } = useContext(NavStateContext);
 
   const workoutDef = useMemo(
-    (): WorkoutDefDenormalized =>
-      type === "workout_def" ? data : data.workout_def,
+    (): WorkoutDefDenormalized | undefined =>
+      type === "workout_def" ? data : data?.workout_def,
     [data, type],
   );
   const workoutInstanceEntries = useMemo(
     () =>
-      type === "workout_instance"
+      data && type === "workout_instance"
         ? new Map<string, WorkoutBlockExerciseInstance>(
             data.block_exercises.map((e) => [
               instanceExerciseSetKey(
@@ -233,213 +222,220 @@ export function useWorkoutToNestedObject({
   const modals: React.ReactNode[] = [setQuantityModal];
 
   const nestedObject = useMemo(
-    (): NestedObject => ({
-      kind: "node",
-      text: workoutDef.name,
-      subtext: [
-        workoutDef.description,
-        type === "workout_def" && lastFinishedText(workoutDef.last_finished),
-        type === "workout_instance" && startedOnText(data.started),
-        type === "workout_instance" && finishedOnText(data.finished),
-        ((): string => {
-          if (type !== "workout_instance") {
-            return "";
-          }
-          const totalTime = totalTimeSpentInWorkout(data.block_exercises);
-          return totalTime
-            ? `Total time spent in workout: ${pluralize("seconds", totalTime, true)}`
-            : "";
-        })(),
-        type === "workout_instance" && instanceNotesText(data.description),
-      ]
-        .filter((x) => !!x)
-        .join("\n"),
-      children: workoutDef.blocks.map(
-        (block, blockIdx): NestedObject => ({
-          kind: "node",
-          text: block.name ?? `Block ${blockIdx + 1}`,
-          subtext: [
-            block.description,
-            pluralize("set", block.sets, true),
-            block.transition_time
-              ? `Transition time: ${pluralize("second", block.transition_time, true)}`
-              : undefined,
-          ]
-            .filter((x) => !!x)
-            .join("\n"),
-          children: (type === "workout_def"
-            ? cartesianProduct(
-                [undefined],
-                enumerateBlockExercises(block.exercises),
-              )
-            : cartesianProduct(
-                Array.from({ length: block.sets }).map((_, idx) => idx + 1),
-                enumerateBlockExercises(block.exercises),
-              )
-          ).map(([setNum, [blockExercise, blockExerciseIdx]]): NestedObject => {
-            const instanceEntry = (() => {
-              if (!(setNum && workoutInstanceEntries)) {
-                return undefined;
-              }
-              return workoutInstanceEntries.get(
-                instanceExerciseSetKey(blockExercise.id, setNum),
-              );
-            })();
-            const isReps = blockExercise.limit_type === "reps";
-            return {
-              kind: "node",
-              text: [
-                setNum && `Set ${setNum}`,
-                blockExercise.exercise.name,
-                ...blockExercise.variants.map((x) => x.name),
-              ]
-                .filter((x) => !!x)
-                .join(" - "),
-              subtext: [
-                blockExercise.description,
-                instanceEntry?.weight_lbs
-                  ? pluralize("lb", instanceEntry.weight_lbs, true)
-                  : undefined,
-                pluralize(
-                  isReps ? "rep" : "second",
-                  instanceEntry?.limit_value ?? blockExercise.limit_value,
-                  true,
-                ),
-                instanceEntry?.description &&
-                  `Exercise notes: ${instanceEntry.description}`,
-                instanceEntry?.started &&
-                  instanceEntry?.finished &&
-                  `Completed in ${pluralize("seconds", (instanceEntry.finished.getTime() - instanceEntry.started.getTime()) / 1000 - (instanceEntry?.paused_time_s ?? 0), true)}`,
-              ]
-                .filter((x) => !!x)
-                .join("\n"),
-              children: [
-                ...(blockExercise.exercise.description
-                  ? [
-                      {
-                        kind: "leaf",
-                        text: [
-                          blockExercise.exercise.description,
-                          ...blockExercise.variants.map((x) => x.description),
-                        ]
-                          .filter((x) => !!x)
-                          .join(" - "),
-                      } as const,
-                    ]
-                  : []),
-                ...(type === "workout_instance" && instanceEntry && connection
-                  ? [
-                      {
-                        kind: "leaf",
-                        text: "Set weight",
-                        action: () =>
-                          showSetQuantityModal({
-                            quantityName: "weight (lbs)",
-                            initialQuantityValue: instanceEntry.weight_lbs,
-                            setQuantity: (quantityValue) =>
-                              runSetQuantity({
-                                workoutInstance: data,
-                                instanceEntry,
-                                replaceData,
-                                connection,
-                                quantityKey: "_weight_lbs",
-                                quantityValue,
-                              }),
-                          }),
-                      } as const,
-                      {
-                        kind: "leaf",
-                        text: `Set ${isReps ? "reps" : "time"}`,
-                        action: () =>
-                          showSetQuantityModal({
-                            quantityName: isReps ? "reps" : "time (seconds)",
-                            initialQuantityValue: instanceEntry.limit_value,
-                            setQuantity: (quantityValue) =>
-                              runSetQuantity({
-                                workoutInstance: data,
-                                instanceEntry,
-                                replaceData,
-                                connection,
-                                quantityKey: "_limit_value",
-                                quantityValue,
-                              }),
-                          }),
-                      } as const,
-                      {
-                        kind: "leaf",
-                        text: `Set exercise notes`,
-                        action: async () => {
-                          const description = prompt(
-                            "Enter exercise notes",
-                            instanceEntry.description ?? "",
-                          );
-                          if (description == null) return;
-                          const newWorkoutInstance =
-                            workoutInstanceDenormalizedSchema.parse(
-                              await connection.runRpc(
-                                "patch_workout_block_exercise_instance",
-                                {
-                                  _auth_id: connection.auth_id,
-                                  _workout_block_exercise_instance_id:
-                                    instanceEntry.id,
-                                  _description: description,
-                                },
+    (): NestedObject | undefined =>
+      data &&
+      workoutDef && {
+        kind: "node",
+        text: workoutDef.name,
+        subtext: [
+          workoutDef.description,
+          type === "workout_def" && lastFinishedText(workoutDef.last_finished),
+          type === "workout_instance" && startedOnText(data.started),
+          type === "workout_instance" && finishedOnText(data.finished),
+          ((): string => {
+            if (type !== "workout_instance") {
+              return "";
+            }
+            const totalTime = totalTimeSpentInWorkout(data.block_exercises);
+            return totalTime
+              ? `Total time spent in workout: ${pluralize("seconds", totalTime, true)}`
+              : "";
+          })(),
+          type === "workout_instance" && instanceNotesText(data.description),
+        ]
+          .filter((x) => !!x)
+          .join("\n"),
+        children: workoutDef.blocks.map(
+          (block, blockIdx): NestedObject => ({
+            kind: "node",
+            text: block.name ?? `Block ${blockIdx + 1}`,
+            subtext: [
+              block.description,
+              pluralize("set", block.sets, true),
+              block.transition_time
+                ? `Transition time: ${pluralize("second", block.transition_time, true)}`
+                : undefined,
+            ]
+              .filter((x) => !!x)
+              .join("\n"),
+            children: (type === "workout_def"
+              ? cartesianProduct(
+                  [undefined],
+                  enumerateBlockExercises(block.exercises),
+                )
+              : cartesianProduct(
+                  Array.from({ length: block.sets }).map((_, idx) => idx + 1),
+                  enumerateBlockExercises(block.exercises),
+                )
+            ).map(
+              ([setNum, [blockExercise, blockExerciseIdx]]): NestedObject => {
+                const instanceEntry = (() => {
+                  if (!(setNum && workoutInstanceEntries)) {
+                    return undefined;
+                  }
+                  return workoutInstanceEntries.get(
+                    instanceExerciseSetKey(blockExercise.id, setNum),
+                  );
+                })();
+                const isReps = blockExercise.limit_type === "reps";
+                return {
+                  kind: "node",
+                  text: [
+                    setNum && `Set ${setNum}`,
+                    blockExercise.exercise.name,
+                    ...blockExercise.variants.map((x) => x.name),
+                  ]
+                    .filter((x) => !!x)
+                    .join(" - "),
+                  subtext: [
+                    blockExercise.description,
+                    instanceEntry?.weight_lbs
+                      ? pluralize("lb", instanceEntry.weight_lbs, true)
+                      : undefined,
+                    pluralize(
+                      isReps ? "rep" : "second",
+                      instanceEntry?.limit_value ?? blockExercise.limit_value,
+                      true,
+                    ),
+                    instanceEntry?.description &&
+                      `Exercise notes: ${instanceEntry.description}`,
+                    instanceEntry?.started &&
+                      instanceEntry?.finished &&
+                      `Completed in ${pluralize("seconds", (instanceEntry.finished.getTime() - instanceEntry.started.getTime()) / 1000 - (instanceEntry?.paused_time_s ?? 0), true)}`,
+                  ]
+                    .filter((x) => !!x)
+                    .join("\n"),
+                  children: [
+                    ...(blockExercise.exercise.description
+                      ? [
+                          {
+                            kind: "leaf",
+                            text: [
+                              blockExercise.exercise.description,
+                              ...blockExercise.variants.map(
+                                (x) => x.description,
                               ),
-                            );
-                          replaceData(newWorkoutInstance);
-                        },
-                      } as const,
-                      {
-                        kind: "leaf",
-                        text: `View exercise history`,
-                        action: () => {
-                          pushNavState({
-                            status: "view_exercise_history",
-                            data: {
-                              def: blockExercise,
-                              instance: instanceEntry,
+                            ]
+                              .filter((x) => !!x)
+                              .join(" - "),
+                          } as const,
+                        ]
+                      : []),
+                    ...(type === "workout_instance" &&
+                    instanceEntry &&
+                    connection
+                      ? [
+                          {
+                            kind: "leaf",
+                            text: "Set weight",
+                            action: () =>
+                              showSetQuantityModal({
+                                quantityName: "weight (lbs)",
+                                initialQuantityValue: instanceEntry.weight_lbs,
+                                setQuantity: (quantityValue) =>
+                                  runSetQuantity({
+                                    workoutInstance: data,
+                                    instanceEntry,
+                                    replaceData,
+                                    connection,
+                                    quantityKey: "_weight_lbs",
+                                    quantityValue,
+                                  }),
+                              }),
+                          } as const,
+                          {
+                            kind: "leaf",
+                            text: `Set ${isReps ? "reps" : "time"}`,
+                            action: () =>
+                              showSetQuantityModal({
+                                quantityName: isReps
+                                  ? "reps"
+                                  : "time (seconds)",
+                                initialQuantityValue: instanceEntry.limit_value,
+                                setQuantity: (quantityValue) =>
+                                  runSetQuantity({
+                                    workoutInstance: data,
+                                    instanceEntry,
+                                    replaceData,
+                                    connection,
+                                    quantityKey: "_limit_value",
+                                    quantityValue,
+                                  }),
+                              }),
+                          } as const,
+                          {
+                            kind: "leaf",
+                            text: `Set exercise notes`,
+                            action: async () => {
+                              const description = prompt(
+                                "Enter exercise notes",
+                                instanceEntry.description ?? "",
+                              );
+                              if (description == null) return;
+                              replaceData(
+                                workoutInstanceDenormalizedSchema.parse(
+                                  await connection.runRpc(
+                                    "patch_workout_block_exercise_instance",
+                                    {
+                                      _auth_id: connection.auth_id,
+                                      _workout_block_exercise_instance_id:
+                                        instanceEntry.id,
+                                      _description: description,
+                                    },
+                                  ),
+                                ),
+                              );
                             },
-                          });
-                        },
-                      } as const,
-                    ]
-                  : []),
-                ...(type === "workout_instance" &&
-                instanceEntry &&
-                resumeWorkoutAtInstance
-                  ? [
-                      {
-                        kind: "leaf",
-                        text: `Resume workout from here`,
-                        action: () => {
-                          resumeWorkoutAtInstance({
-                            workout_block_idx: blockIdx,
-                            block_exercise_idx: blockExerciseIdx,
-                            instance: { id: instanceEntry.id },
-                          });
-                        },
-                      } as const,
-                    ]
-                  : []),
-              ],
-              highlight:
-                autoExpandEntry &&
-                instanceEntry &&
-                instanceEntry.id === autoExpandEntry.instance.id,
-            };
+                          } as const,
+                          {
+                            kind: "leaf",
+                            text: `View exercise history`,
+                            action: () => {
+                              pushNavState({
+                                status: "view_exercise_history",
+                                data: {
+                                  def: blockExercise,
+                                  instance: instanceEntry,
+                                },
+                              });
+                            },
+                          } as const,
+                        ]
+                      : []),
+                    ...(type === "workout_instance" &&
+                    instanceEntry &&
+                    resumeWorkoutAtInstance
+                      ? [
+                          {
+                            kind: "leaf",
+                            text: `Resume workout from here`,
+                            action: () => {
+                              resumeWorkoutAtInstance({
+                                workout_block_idx: blockIdx,
+                                block_exercise_idx: blockExerciseIdx,
+                                instance: { id: instanceEntry.id },
+                              });
+                            },
+                          } as const,
+                        ]
+                      : []),
+                  ],
+                  highlight:
+                    autoExpandEntry &&
+                    instanceEntry &&
+                    instanceEntry.id === autoExpandEntry.instance.id,
+                };
+              },
+            ),
+            highlight:
+              autoExpandEntry && blockIdx === autoExpandEntry.workout_block_idx,
           }),
-          highlight:
-            autoExpandEntry && blockIdx === autoExpandEntry.workout_block_idx,
-        }),
-      ),
-    }),
+        ),
+      },
     [
-      workoutDef.name,
-      workoutDef.description,
-      workoutDef.last_finished,
-      workoutDef.blocks,
-      type,
       data,
+      workoutDef,
+      type,
       autoExpandEntry,
       connection,
       resumeWorkoutAtInstance,

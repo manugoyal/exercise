@@ -75,13 +75,13 @@ function EntryPointNav() {
   } else if (navState.status === "pick_past_workout_instances") {
     return <PastWorkoutInstancesPicker />;
   } else if (navState.status === "view_workout_def") {
-    return <WorkoutDefView workoutDef={navState.data} />;
+    return <WorkoutDefView {...navState.data} />;
   } else if (navState.status === "view_workout_instance") {
-    return <WorkoutInstanceView workoutInstance={navState.data} />;
+    return <WorkoutInstanceView {...navState.data} />;
   } else if (navState.status === "playthrough_workout_instance") {
-    return <WorkoutInstancePlaythrough data={navState.data} />;
+    return <WorkoutInstancePlaythrough {...navState.data} />;
   } else if (navState.status === "view_exercise_history") {
-    return <ExerciseHistoryView data={navState.data} />;
+    return <ExerciseHistoryView {...navState.data} />;
   } else {
     throw new Error(`Unknown NavState: ${JSON.stringify(navState)}`);
   }

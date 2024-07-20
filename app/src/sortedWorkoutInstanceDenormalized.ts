@@ -17,6 +17,10 @@ export type SortedWorkoutInstanceDenormalized = {
   entryIdToSortedEntryIdx: Map<string, number>;
 };
 
+export type SortedWorkoutInstanceUndefined = {
+  [X in keyof SortedWorkoutInstanceDenormalized]?: undefined;
+};
+
 export function sortWorkoutInstanceDenormalized(
   workout: WorkoutInstanceDenormalized,
 ): SortedWorkoutInstanceDenormalized {

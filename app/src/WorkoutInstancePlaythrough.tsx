@@ -1,11 +1,7 @@
 import { useCallback, useContext, useEffect, useMemo } from "react";
 import pluralize from "pluralize";
 import { ConnectionContext } from "./connection";
-import {
-  NavState,
-  NavStateContext,
-  NavStatePlaythroughWorkoutInstance,
-} from "./navState";
+import { NavState, NavStateContext } from "./navState";
 import { sortWorkoutInstanceDenormalized } from "./sortedWorkoutInstanceDenormalized";
 import { bark } from "./bark";
 import {
@@ -15,11 +11,13 @@ import {
 import { useSetQuantityModal } from "./useSetQuantityModal";
 import { workoutInstanceDenormalizedSchema } from "./typespecs/denormalized_types";
 
-export function WorkoutInstancePlaythrough(props: {
-  data: NavStatePlaythroughWorkoutInstance["data"];
+export function WorkoutInstancePlaythrough({
+  playthroughState,
+}: {
+  playthroughState: PlaythroughState;
 }) {
   const { workout, workout_block_exercise_instance_id, phase, timerEntries } =
-    props.data;
+    playthroughState;
   if (timerEntries.length === 0) {
     throw new Error("timerEntries should not be empty");
   }
@@ -38,7 +36,7 @@ export function WorkoutInstancePlaythrough(props: {
         }
         return {
           status: "playthrough_workout_instance",
-          data: fn(current.data),
+          data: { playthroughState: fn(current.data.playthroughState) },
         };
       });
     },
@@ -99,59 +97,60 @@ export function WorkoutInstancePlaythrough(props: {
         phase: "play",
         timerEntries: [{ type: "resume", time: new Date() }],
       }));
-    } else if (entryIdx + 1 >= sortedEntries.length) {
-      // We've finished the workout.
-      const newWorkoutInstance = workoutInstanceDenormalizedSchema.parse(
-        await connection.runRpc("patch_workout_instance", {
+      return;
+    }
+    // Mark this exercise as finished. If we're moving to the next exercise,
+    // don't wait for the metadata update of our current instance to complete
+    // before advancing.
+    const finishCurrentExercisePromise = (async () => {
+      try {
+        // Figure out the start time and total paused time of this exercise.
+        const tailState = { lastEntry: timerEntries[0], pausedTimeMs: 0 };
+        let startTime: Date | undefined =
+          tailState.lastEntry.type === "resume"
+            ? tailState.lastEntry.time
+            : undefined;
+        timerEntries.slice(1).forEach((e) => {
+          if (!startTime && e.type === "resume") {
+            startTime = e.time;
+          }
+          if (tailState.lastEntry.type === "pause") {
+            tailState.pausedTimeMs +=
+              e.time.getTime() - tailState.lastEntry.time.getTime();
+          }
+          tailState.lastEntry = e;
+        });
+        if (startTime === undefined) {
+          throw new Error("Impossible: no timer entries");
+        }
+        await connection.runRpc("patch_workout_block_exercise_instance", {
+          _auth_id: connection.auth_id,
+          _workout_block_exercise_instance_id: instance.id,
+          _started: startTime,
+          _finished: new Date(),
+          _paused_time_s: tailState.pausedTimeMs / 1000,
+        });
+      } catch (e) {
+        console.error("Failed to update workout exercise instance times\n", e);
+      }
+    })();
+    if (entryIdx + 1 >= sortedEntries.length) {
+      // We've finished the workout. Wait for everything to finish before
+      // returning back to the workout view.
+      await Promise.all([
+        finishCurrentExercisePromise,
+        connection.runRpc("patch_workout_instance", {
           _auth_id: connection.auth_id,
           _workout_instance_id: workout.id,
           _finished: new Date(),
         }),
-      );
-      replaceNavState((current: NavState) => {
-        if (current.status !== "playthrough_workout_instance") {
-          throw new Error("Impossible");
-        }
-        return { status: "view_workout_instance", data: newWorkoutInstance };
+      ]);
+      replaceNavState({
+        status: "view_workout_instance",
+        data: { workoutInstanceId: workout.id },
       });
     } else {
-      // Advance to the next exercise. Don't wait for the metadata update of our
-      // current instance to complete before advancing.
-      (async () => {
-        try {
-          // Figure out the start time and total paused time of this exercise.
-          const tailState = { lastEntry: timerEntries[0], pausedTimeMs: 0 };
-          let startTime: Date | undefined =
-            tailState.lastEntry.type === "resume"
-              ? tailState.lastEntry.time
-              : undefined;
-          timerEntries.slice(1).forEach((e) => {
-            if (!startTime && e.type === "resume") {
-              startTime = e.time;
-            }
-            if (tailState.lastEntry.type === "pause") {
-              tailState.pausedTimeMs +=
-                e.time.getTime() - tailState.lastEntry.time.getTime();
-            }
-            tailState.lastEntry = e;
-          });
-          if (startTime === undefined) {
-            throw new Error("Impossible: no timer entries");
-          }
-          await connection.runRpc("patch_workout_block_exercise_instance", {
-            _auth_id: connection.auth_id,
-            _workout_block_exercise_instance_id: instance.id,
-            _started: startTime,
-            _finished: new Date(),
-            _paused_time_s: tailState.pausedTimeMs / 1000,
-          });
-        } catch (e) {
-          console.error(
-            "Failed to update workout exercise instance times\n",
-            e,
-          );
-        }
-      })();
+      // Go straight to the next exercise.
       updatePlaythroughState((current: PlaythroughState) =>
         getPlaythroughExerciseInitialState({
           workout: current.workout,
@@ -298,13 +297,12 @@ export function WorkoutInstancePlaythrough(props: {
         // Force-update the state to force a refresh of the component display.
         updatePlaythroughState((current: PlaythroughState) => ({ ...current }));
       }
-    }, 100);
+    }, 50);
     return () => clearInterval(intervalId);
   }, [
     advancePhase,
     getTimeRemaining,
     phase,
-    props.data,
     replaceNavState,
     updatePlaythroughState,
   ]);

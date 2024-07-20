@@ -12,15 +12,15 @@ export type NavStatePickPastWorkoutInstances = {
 };
 export type NavStateViewWorkoutDef = {
   status: "view_workout_def";
-  data: WorkoutDefDenormalized;
+  data: { workoutDefId: string };
 };
 export type NavStateViewWorkoutInstance = {
   status: "view_workout_instance";
-  data: WorkoutInstanceDenormalized;
+  data: { workoutInstanceId: string };
 };
 export type NavStatePlaythroughWorkoutInstance = {
   status: "playthrough_workout_instance";
-  data: PlaythroughState;
+  data: { playthroughState: PlaythroughState };
 };
 export type NavStateViewExerciseHistory = {
   status: "view_exercise_history";
