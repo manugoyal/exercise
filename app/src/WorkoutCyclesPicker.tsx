@@ -3,14 +3,13 @@ import { useContext, useEffect, useMemo, useState } from "react";
 import { ConnectionContext } from "./connection";
 import {
   WorkoutCycleDenormalized,
+  WorkoutDefDenormalized,
   workoutCycleDenormalizedSchema,
 } from "./typespecs/denormalized_types";
 import { Loading } from "./Loading";
 import { NestedObject, NestedObjectPicker } from "./NestedObjectPicker";
 import { NavState, NavStateContext } from "./navState";
 import { lastFinishedText } from "./util";
-
-type WorkoutCycleDenormalizedEntry = WorkoutCycleDenormalized["entries"][0];
 
 function convertWorkoutCyclesToNestedObject({
   workoutCycles,
@@ -24,16 +23,19 @@ function convertWorkoutCyclesToNestedObject({
     text: "Workout Cycles",
     children: workoutCycles.map((workoutCycle): NestedObject => {
       const entries = workoutCycle.entries;
-      const lastFinishedEntries = workoutCycle.entries.reduce((acc, e) => {
-        if (e.workout_def.last_finished) {
-          return acc.concat({
-            entry: e,
-            last_finished: e.workout_def.last_finished,
-          });
-        } else {
-          return acc;
-        }
-      }, new Array<{ entry: WorkoutCycleDenormalizedEntry; last_finished: Date }>());
+      const lastFinishedEntries = workoutCycle.entries.reduce(
+        (acc, workoutDef) => {
+          if (workoutDef.last_finished) {
+            return acc.concat({
+              entry: workoutDef,
+              last_finished: workoutDef.last_finished,
+            });
+          } else {
+            return acc;
+          }
+        },
+        new Array<{ entry: WorkoutDefDenormalized; last_finished: Date }>(),
+      );
       lastFinishedEntries.sort(
         (lhs, rhs) => lhs.last_finished.getTime() - rhs.last_finished.getTime(),
       );
@@ -47,7 +49,7 @@ function convertWorkoutCyclesToNestedObject({
         latestLastFinishedIdx === undefined
           ? 0
           : (latestLastFinishedIdx + 1) % entries.length;
-      const entryToLastFinished = new Map<WorkoutCycleDenormalizedEntry, Date>(
+      const entryToLastFinished = new Map<WorkoutDefDenormalized, Date>(
         lastFinishedEntries.map((x) => [x.entry, x.last_finished]),
       );
       return {
@@ -55,12 +57,12 @@ function convertWorkoutCyclesToNestedObject({
         text: workoutCycle.name,
         subtext: workoutCycle.description ?? undefined,
         children: entries.map(
-          (entry, idx): NestedObject => ({
+          (workoutDef, idx): NestedObject => ({
             kind: "leaf",
-            text: entry.workout_def.name,
+            text: workoutDef.name,
             subtext: [
-              entry.workout_def.description,
-              lastFinishedText(entryToLastFinished.get(entry)),
+              workoutDef.description,
+              lastFinishedText(entryToLastFinished.get(workoutDef)),
             ]
               .filter((x) => !!x)
               .join("\n"),
@@ -68,7 +70,7 @@ function convertWorkoutCyclesToNestedObject({
             action: () => {
               pushNavState({
                 status: "view_workout_def",
-                data: { workoutDefId: entry.workout_def.id },
+                data: { workoutDefId: workoutDef.id },
               });
             },
           }),

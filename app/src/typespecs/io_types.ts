@@ -34,6 +34,7 @@ export const workoutDefIOSchema = workoutDefSchema
         .omit({ id: true, created: true, workout_def_id: true, ordinal: true })
         .merge(
           z.object({
+            id: workoutBlockDefSchema.shape.id.nullish(),
             exercises: workoutBlockExerciseDefSchema
               .omit({
                 id: true,
@@ -44,6 +45,7 @@ export const workoutDefIOSchema = workoutDefSchema
               })
               .merge(
                 z.object({
+                  id: workoutBlockExerciseDefSchema.shape.id.nullish(),
                   exercise: exerciseSchema.shape.name,
                   variants: variantSchema.shape.name.array().nullish(),
                 }),

@@ -750,6 +750,8 @@ async function populateDb(sql: postgres.TransactionSql) {
   );
   const userNameToId = new Map<string, string>([[userName, userId]]);
 
+  await sql`insert into superusers values (${userId})`;
+
   const idNameSchema = z.object({ id: z.string(), name: z.string() });
 
   const exerciseResults = await sql`

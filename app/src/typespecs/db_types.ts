@@ -47,7 +47,7 @@ export const workoutBlockDefSchema = z.object({
   sets: z.number(),
   transition_time: z.number().nullish(),
 });
-export type WorkoutSetDef = z.infer<typeof workoutBlockDefSchema>;
+export type WorkoutBlockDef = z.infer<typeof workoutBlockDefSchema>;
 
 export const workoutBlockExerciseDefSchema = z.object({
   id: z.string().uuid(),
@@ -117,9 +117,6 @@ export const workoutCycleSchema = z.object({
 export type WorkoutCycle = z.infer<typeof workoutCycleSchema>;
 
 export const workoutCycleEntrySchema = z.object({
-  id: z.string().uuid(),
-  created: datetimeSchema,
-
   workout_cycle_id: z.string().uuid(),
   workout_def_id: z.string().uuid(),
   ordinal: z.number(),

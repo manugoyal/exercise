@@ -65,14 +65,7 @@ export const workoutCycleDenormalizedSchema = workoutCycleSchema
   .merge(
     z.object({
       user: userSchema,
-      entries: workoutCycleEntrySchema
-        .omit({ workout_cycle_id: true, workout_def_id: true, ordinal: true })
-        .merge(
-          z.object({
-            workout_def: workoutDefDenormalizedSchema,
-          }),
-        )
-        .array(),
+      entries: workoutDefDenormalizedSchema.array(),
     }),
   );
 export type WorkoutCycleDenormalized = z.infer<

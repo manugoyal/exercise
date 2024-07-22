@@ -16,6 +16,12 @@ alter table users enable row level security;
 create unique index on users (name);
 create unique index on users (auth_id);
 
+create table superusers (
+  user_id uuid not null primary key references users
+);
+
+alter table superusers enable row level security;
+
 create table exercises (
     id uuid not null primary key default gen_random_uuid(),
     created timestamp with time zone not null default current_timestamp,
@@ -155,9 +161,6 @@ alter table workout_cycles enable row level security;
 create unique index on workout_cycles (user_id, name);
 
 create table workout_cycle_entries (
-    id uuid not null primary key default gen_random_uuid(),
-    created timestamp with time zone not null default current_timestamp,
-
     workout_cycle_id uuid not null references workout_cycles,
     workout_def_id uuid not null references workout_defs,
     ordinal integer not null
@@ -431,8 +434,7 @@ return (
     cycle_entries as (
     select
         coalesce(jsonb_agg(
-            ((to_jsonb(workout_cycle_entries) - ARRAY['workout_cycle_id', 'workout_def_id', 'ordinal']) ||
-             jsonb_build_object('workout_def', get_workout_def(_auth_id, workout_cycle_entries.workout_def_id)))
+            get_workout_def(_auth_id, workout_cycle_entries.workout_def_id)
             order by workout_cycle_entries.ordinal), '[]'::jsonb) vals
     from
         workout_cycle_entries where workout_cycle_id = _id
@@ -954,4 +956,449 @@ return (
     from exercise_ios, variant_ios, workout_def_ios, workout_cycle_ios, workout_instances
   );
 end
+$$;
+
+-- Given a list of exercise names, returns an object {name: id} for each name
+-- that was found.
+create or replace function get_exercises_by_name(_auth_id uuid, _names text[])
+returns jsonb
+language plpgsql
+security definer set search_path = 'public'
+stable
+as $$
+declare
+    _user_id uuid := lookup_user_id(_auth_id);
+begin
+return (
+    select coalesce(jsonb_object_agg(exercises.name, exercises.id), '{}'::jsonb)
+    from exercises
+    where exercises.name = any (_names)
+);
+end;
+$$;
+
+-- Given a list of variant names, returns an object {name: id} for each name
+-- that was found.
+create or replace function get_variants_by_name(_auth_id uuid, _names text[])
+returns jsonb
+language plpgsql
+security definer set search_path = 'public'
+stable
+as $$
+declare
+    _user_id uuid := lookup_user_id(_auth_id);
+begin
+return (
+    select coalesce(jsonb_object_agg(variants.name, variants.id), '{}'::jsonb)
+    from variants
+    where variants.name = any (_names)
+);
+end;
+$$;
+
+-- Given a list of workout_def names, returns an object {name: id} for each name
+-- that was found.
+create or replace function get_workout_defs_by_name(_auth_id uuid, _names text[])
+returns jsonb
+language plpgsql
+security definer set search_path = 'public'
+stable
+as $$
+declare
+    _user_id uuid := lookup_user_id(_auth_id);
+begin
+return (
+    select coalesce(jsonb_object_agg(workout_defs.name, workout_defs.id), '{}'::jsonb)
+    from workout_defs
+    where workout_defs.name = any (_names) and workout_defs.user_id = _user_id
+);
+end;
+$$;
+
+-- Given a list of workout_cycle names, returns an object {name: id} for each
+-- name that was found.
+create or replace function get_workout_cycles_by_name(_auth_id uuid, _names text[])
+returns jsonb
+language plpgsql
+security definer set search_path = 'public'
+stable
+as $$
+declare
+    _user_id uuid := lookup_user_id(_auth_id);
+begin
+return (
+    select coalesce(jsonb_object_agg(workout_cycles.name, workout_cycles.id), '{}'::jsonb)
+    from workout_cycles
+    where workout_cycles.name = any (_names) and workout_cycles.user_id = _user_id
+);
+end;
+$$;
+
+-- Inserts each of the exercise records into the database.
+create or replace function insert_exercises(_auth_id uuid, _exercises exercises[])
+returns void
+language plpgsql
+security definer set search_path = 'public'
+as $$
+declare
+    _user_id uuid := lookup_user_id(_auth_id);
+    _superuser_id uuid;
+begin
+if cardinality(_exercises) = 0 then
+    return;
+end if;
+select user_id into _superuser_id from superusers where user_id = _user_id;
+if not found then
+    raise exception 'User does not have permission to insert exercises';
+end if;
+insert into exercises(id, name, description)
+select id, name, description from unnest(_exercises);
+end;
+$$;
+
+-- Updates each of the given exercise records.
+create or replace function update_exercises(_auth_id uuid, _exercises exercises[])
+returns void
+language plpgsql
+security definer set search_path = 'public'
+as $$
+declare
+    _user_id uuid := lookup_user_id(_auth_id);
+    _superuser_id uuid;
+begin
+if cardinality(_exercises) = 0 then
+    return;
+end if;
+select user_id into _superuser_id from superusers where user_id = _user_id;
+if not found then
+    raise exception 'User does not have permission to insert exercises';
+end if;
+with
+update_records as (
+    select id, name, description from unnest(_exercises)
+)
+update exercises
+set name = update_records.name, description = update_records.description
+from update_records
+where exercises.id = update_records.id;
+end;
+$$;
+
+-- Inserts each of the variant records into the database.
+create or replace function insert_variants(_auth_id uuid, _variants variants[])
+returns void
+language plpgsql
+security definer set search_path = 'public'
+as $$
+declare
+    _user_id uuid := lookup_user_id(_auth_id);
+    _superuser_id uuid;
+begin
+if cardinality(_variants) = 0 then
+    return;
+end if;
+select user_id into _superuser_id from superusers where user_id = _user_id;
+if not found then
+    raise exception 'User does not have permission to insert variants';
+end if;
+insert into variants(id, name, description)
+select id, name, description from unnest(_variants);
+end;
+$$;
+
+-- Updates each of the given variant records.
+create or replace function update_variants(_auth_id uuid, _variants variants[])
+returns void
+language plpgsql
+security definer set search_path = 'public'
+as $$
+declare
+    _user_id uuid := lookup_user_id(_auth_id);
+    _superuser_id uuid;
+begin
+if cardinality(_variants) = 0 then
+    return;
+end if;
+select user_id into _superuser_id from superusers where user_id = _user_id;
+if not found then
+    raise exception 'User does not have permission to insert variants';
+end if;
+with
+update_records as (
+    select id, name, description from unnest(_variants)
+)
+update variants
+set name = update_records.name, description = update_records.description
+from update_records
+where variants.id = update_records.id;
+end;
+$$;
+
+-- Inserts each of the workout defs into the database.
+create or replace function insert_workout_defs(
+    _auth_id uuid,
+    _workout_defs workout_defs[],
+    _workout_block_defs workout_block_defs[],
+    _workout_block_exercise_defs workout_block_exercise_defs[],
+    _workout_block_exercise_variants workout_block_exercise_variants[])
+returns void
+language plpgsql
+security definer set search_path = 'public'
+as $$
+declare
+    _user_id uuid := lookup_user_id(_auth_id);
+    _num_ops bigint;
+begin
+-- Permission checks.
+select count(*) into _num_ops
+from (
+    select 1 from unnest(_workout_block_defs)
+    where workout_def_id in (select id from unnest(_workout_defs))
+) "t";
+if _num_ops <> cardinality(_workout_block_defs) then
+    raise exception 'Invalid workout block defs';
+end if;
+select count(*) into _num_ops
+from (
+    select 1 from unnest(_workout_block_exercise_defs)
+    where workout_block_def_id in (select id from unnest(_workout_block_defs))
+) "t";
+if _num_ops <> cardinality(_work) then
+    raise exception 'Invalid workout block exercise defs';
+end if;
+select count(*) into _num_ops
+from (
+    select 1 from unnest(_workout_block_exercise_variants)
+    where workout_block_exercise_def_id in (select id from unnest(_workout_block_exercise_defs))
+) "t";
+if _num_ops <> cardinality(_work) then
+    raise exception 'Invalid workout block exercise variants';
+end if;
+-- Do insertions.
+insert into workout_defs(id, user_id, name, description)
+select id, _user_id, name, description from unnest(_workout_defs);
+insert into workout_block_defs(id, name, description, workout_def_id, ordinal, sets, transition_time)
+select id, name, description, workout_def_id, ordinal, sets, transition_time
+from unnest(_workout_block_defs);
+insert into workout_block_exercise_defs(id, description, workout_block_def_id, ordinal, exercise_id, limit_type, limit_value)
+select id, description, workout_block_def_id, ordinal, exercise_id, limit_type, limit_value
+from unnest(_workout_block_exercise_defs);
+insert into workout_block_exercise_variants(workout_block_exercise_def_id, variant_id)
+select workout_block_exercise_def_id, variant_id from unnest(_workout_block_exercise_variants);
+end;
+$$;
+
+-- Updates each of the workout def records.
+create or replace function update_workout_defs(
+    _auth_id uuid,
+    _workout_defs workout_defs[],
+    _workout_block_defs workout_block_defs[],
+    _workout_block_exercise_defs workout_block_exercise_defs[],
+    _workout_block_exercise_variants workout_block_exercise_variants[])
+returns void
+language plpgsql
+security definer set search_path = 'public'
+as $$
+declare
+    _user_id uuid := lookup_user_id(_auth_id);
+    _num_ops bigint;
+begin
+-- Permission checks.
+select count(*) into _num_ops
+from (
+    select 1 from
+        unnest(_workout_defs) item
+        join workout_defs on item.id = workout_defs.id
+    where workout_defs.user_id = _user_id
+) "t";
+if _num_ops <> cardinality(_workout_defs) then
+    raise exception 'Invalid workout defs';
+end if;
+select count(*) into _num_ops
+from (
+    select 1 from
+        unnest(_workout_block_defs) item
+        join workout_block_defs on item.id = workout_block_defs.id
+        join workout_defs on workout_block_defs.workout_def_id = workout_defs.id
+    where workout_defs.user_id = _user_id
+) "t";
+if _num_ops <> cardinality(_workout_block_defs) then
+    raise exception 'Invalid workout block defs';
+end if;
+select count(*) into _num_ops
+from (
+    select 1 from
+        unnest(_workout_block_exercise_defs) item
+        join workout_block_exercise_defs on item.id = workout_block_exercise_defs.id
+        join workout_block_defs on workout_block_exercise_defs.workout_block_def_id = workout_block_defs.id
+        join workout_defs on workout_block_defs.workout_def_id = workout_defs.id
+    where workout_defs.user_id = _user_id
+) "t";
+if _num_ops <> cardinality(_workout_block_exercise_defs) then
+    raise exception 'Invalid workout block exercise defs';
+end if;
+select count(*) into _num_ops
+from (
+    select 1 from
+        unnest(_workout_block_exercise_variants) item
+        join workout_block_exercise_defs on item.workout_block_exercise_def_id = workout_block_exercise_defs.id
+        join workout_block_defs on workout_block_exercise_defs.workout_block_def_id = workout_block_defs.id
+        join workout_defs on workout_block_defs.workout_def_id = workout_defs.id
+    where workout_defs.user_id = _user_id
+) "t";
+if _num_ops <> cardinality(_workout_block_exercise_variants) then
+    raise exception 'Invalid workout block exercise variants';
+end if;
+-- Do updates.
+with
+update_records as (
+    select id, name, description from unnest(_workout_defs)
+)
+update workout_defs
+set name = update_records.name, description = update_records.description
+from update_records
+where workout_defs.id = update_records.id;
+with
+update_records as (
+    select id, name, description, workout_def_id, ordinal, sets, transition_time from unnest(_workout_block_defs)
+)
+update workout_block_defs
+set name = update_records.name, description = update_records.description,
+    ordinal = update_records.ordinal, sets = update_records.sets,
+    transition_time = update_records.transition_time
+from update_records
+where workout_block_defs.id = update_records.id;
+with
+update_records as (
+    select id, description, workout_block_def_id, ordinal, exercise_id, limit_type, limit_value from unnest(_workout_block_exercise_defs)
+)
+update workout_block_exercise_defs
+set description = update_records.description, ordinal = update_records.ordinal,
+    exercise_id = update_records.exercise_id, limit_type = update_records.limit_type,
+    limit_value = update_records.limit_value
+from update_records
+where workout_block_exercise_defs.id = update_records.id;
+delete from workout_block_exercise_variants
+where workout_block_exercise_def_id in (select workout_block_exercise_def_id from unnest(_workout_block_exercise_variants));
+insert into workout_block_exercise_variants(workout_block_exercise_def_id, variant_id)
+select workout_block_exercise_def_id, variant_id from unnest(_workout_block_exercise_variants);
+end;
+$$;
+
+-- Inserts each of the workout cycles into the database.
+create or replace function insert_workout_cycles(_auth_id uuid, _workout_cycles workout_cycles[], _workout_cycle_entries workout_cycle_entries[])
+returns void
+language plpgsql
+security definer set search_path = 'public'
+as $$
+declare
+    _user_id uuid := lookup_user_id(_auth_id);
+    _num_ops bigint;
+begin
+-- Permission checks.
+select count(*) into _num_ops
+from (
+    select 1 from unnest(_workout_cycle_entries)
+    where workout_cycle_id in (select id from unnest(_workout_cycles))
+) "t";
+if _num_ops <> cardinality(_workout_cycle_entries) then
+    raise exception 'Invalid workout cycle entries';
+end if;
+-- Do inserts.
+insert into workout_cycles(id, name, description, user_id)
+select id, name, description, _user_id from unnest(_workout_cycles);
+insert into workout_cycle_entries(id, workout_cycle_id, workout_def_id, ordinal)
+select id, workout_cycle_id, workout_def_id, ordinal
+from unnest(_workout_cycle_entries);
+end;
+$$;
+
+-- Updates each of the workout cycle records.
+create or replace function update_workout_cycles(_auth_id uuid, _workout_cycles workout_cycles[], _workout_cycle_entries workout_cycle_entries[])
+returns void
+language plpgsql
+security definer set search_path = 'public'
+as $$
+declare
+    _user_id uuid := lookup_user_id(_auth_id);
+    _num_ops bigint;
+begin
+-- Permission checks.
+select count(*) into _num_ops
+from (
+    select 1 from
+        unnest(_workout_cycles) item
+        join workout_cycles on item.id = workout_cycles.id
+    where workout_cycles.user_id = _user_id
+) "t";
+if _num_ops <> cardinality(_workout_cycles) then
+    raise exception 'Invalid workout cycles';
+end if;
+select count(*) into _num_ops
+from (
+    select 1 from
+        unnest(_workout_cycle_entries) item
+        join workout_cycles on item.workout_cycle_id = workout_cycles.id
+    where workout_cycles.user_id = _user_id
+) "t";
+if _num_ops <> cardinality(_workout_cycle_entries) then
+    raise exception 'Invalid workout cycle entries';
+end if;
+-- Do updates.
+with
+update_records as (
+    select id, name, description from unnest(_workout_cycles)
+)
+update workout_cycles
+set name = update_records.name, description = update_records.description
+from update_records
+where workout_cycles.id = update_records.id;
+with
+update_records as (
+    select id, workout_cycle_id, workout_def_id, ordinal from unnest(_workout_cycle_entries)
+)
+update workout_cycle_entries
+set workout_def_id = update_records.workout_def_id, ordinal = update_records.ordinal
+from update_records
+where workout_cycle_entries.id = update_records.id;
+end;
+$$;
+
+-- Bundles all the above inserts/updates into a single function.
+create or replace function execute_import(
+    _auth_id uuid,
+    _insert_exercises exercises[],
+    _update_exercises exercises[],
+    _insert_variants variants[],
+    _update_variants variants[],
+    _insert_workout_defs workout_defs[],
+    _update_workout_defs workout_defs[],
+    _insert_workout_block_defs workout_block_defs[],
+    _update_workout_block_defs workout_block_defs[],
+    _insert_workout_block_exercise_defs workout_block_exercise_defs[],
+    _update_workout_block_exercise_defs workout_block_exercise_defs[],
+    _insert_workout_block_exercise_variants workout_block_exercise_variants[],
+    _update_workout_block_exercise_variants workout_block_exercise_variants[],
+    _insert_workout_cycles workout_cycles[],
+    _update_workout_cycles workout_cycles[],
+    _insert_workout_cycle_entries workout_cycle_entries[],
+    _update_workout_cycle_entries workout_cycle_entries[])
+returns void
+language plpgsql
+security definer set search_path = 'public'
+as $$
+begin
+perform insert_exercises(_auth_id, _insert_exercises);
+perform update_exercises(_auth_id, _update_exercises);
+perform insert_variants(_auth_id, _insert_variants);
+perform update_variants(_auth_id, _update_variants);
+perform insert_workout_defs(
+    _auth_id, _insert_workout_defs, _insert_workout_block_defs, _insert_workout_block_exercise_defs,
+    _insert_workout_block_exercise_variants);
+perform update_workout_defs(
+    _auth_id, _update_workout_defs, _update_workout_block_defs, _update_workout_block_exercise_defs,
+    _update_workout_block_exercise_variants);
+perform insert_workout_cycles(_auth_id, _insert_workout_cycles, _insert_workout_cycle_entries);
+perform update_workout_cycles(_auth_id, _update_workout_cycles, _update_workout_cycle_entries);
+end;
 $$;
