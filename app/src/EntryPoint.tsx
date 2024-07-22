@@ -9,6 +9,8 @@ import { WorkoutDefView } from "./WorkoutDefView";
 import { WorkoutInstanceView } from "./WorkoutInstanceView";
 import { WorkoutInstancePlaythrough } from "./WorkoutInstancePlaythrough";
 import { ExerciseHistoryView } from "./ExerciseHistoryView";
+import { Settings } from "./Settings";
+import { ImportExport } from "./ImportExport";
 
 export function EntryPoint() {
   const { connection, loginForm } = useMakeConnection();
@@ -82,6 +84,10 @@ function EntryPointNav() {
     return <WorkoutInstancePlaythrough {...navState.data} />;
   } else if (navState.status === "view_exercise_history") {
     return <ExerciseHistoryView {...navState.data} />;
+  } else if (navState.status === "settings") {
+    return <Settings />;
+  } else if (navState.status === "import_export") {
+    return <ImportExport />;
   } else {
     throw new Error(`Unknown NavState: ${JSON.stringify(navState)}`);
   }

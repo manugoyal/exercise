@@ -197,6 +197,7 @@ create or replace function lookup_auth_id(
 returns uuid
 language plpgsql
 security definer set search_path = 'public'
+stable
 as $$
 declare
     _auth_id uuid;
@@ -214,10 +215,37 @@ begin
 end;
 $$;
 
+create or replace function reset_user_name_and_password(
+    _auth_id uuid,
+    _current_name text,
+    _current_password text,
+    _new_name text,
+    _new_password text
+)
+returns void
+language plpgsql
+security definer set search_path = 'public'
+as $$
+declare
+    _current_auth_id uuid := lookup_auth_id(_current_name, _current_password);
+begin
+    if _current_auth_id <> _auth_id then
+        raise exception 'Invalid credentials';
+    end if;
+
+    update users
+    set
+        name = _new_name,
+        password_hash = extensions.crypt(_new_password, extensions.gen_salt('bf'))
+    where auth_id = _auth_id;
+end;
+$$;
+
 create or replace function lookup_user_id(_auth_id uuid)
 returns uuid
 language plpgsql
 security definer set search_path = 'public'
+stable
 as $$
 declare
     _user_id uuid;
@@ -240,6 +268,7 @@ create or replace function get_workout_block_exercise_variants_key(
 returns text
 language sql
 security definer set search_path = 'public'
+stable
 as $$
 select coalesce(string_agg(variant_id::text, ',' order by variant_id), '')
 from workout_block_exercise_variants
@@ -253,6 +282,7 @@ create or replace function get_user(_auth_id uuid)
 returns jsonb
 language plpgsql
 security definer set search_path = 'public'
+stable
 as $$
 declare
     _user_id uuid := lookup_user_id(_auth_id);
@@ -270,6 +300,7 @@ create or replace function get_workout_def(_auth_id uuid, _id uuid)
 returns jsonb
 language plpgsql
 security definer set search_path = 'public'
+stable
 as $$
 declare
     _user_id uuid := lookup_user_id(_auth_id);
@@ -282,17 +313,17 @@ return (
         array_agg(to_jsonb(variants) order by variants.name) variants
     from
         workout_block_defs
-            join workout_block_exercise_defs on (
-                workout_block_defs.id =
-                    workout_block_exercise_defs.workout_block_def_id
-            )
-            join workout_block_exercise_variants on (
-                workout_block_exercise_defs.id =
-                    workout_block_exercise_variants.workout_block_exercise_def_id
-            )
-            join variants on (
-                workout_block_exercise_variants.variant_id = variants.id
-            )
+        join workout_block_exercise_defs on (
+            workout_block_defs.id =
+                workout_block_exercise_defs.workout_block_def_id
+        )
+        join workout_block_exercise_variants on (
+            workout_block_exercise_defs.id =
+                workout_block_exercise_variants.workout_block_exercise_def_id
+        )
+        join variants on (
+            workout_block_exercise_variants.variant_id = variants.id
+        )
     where
         workout_block_defs.workout_def_id = _id
     group by
@@ -357,6 +388,7 @@ create or replace function get_workout_instance(_auth_id uuid, _id uuid)
 returns jsonb
 language plpgsql
 security definer set search_path = 'public'
+stable
 as $$
 declare
     _user_id uuid := lookup_user_id(_auth_id);
@@ -389,6 +421,7 @@ create or replace function get_workout_cycle(_auth_id uuid, _id uuid)
 returns jsonb
 language plpgsql
 security definer set search_path = 'public'
+stable
 as $$
 declare
     _user_id uuid := lookup_user_id(_auth_id);
@@ -421,6 +454,7 @@ create or replace function get_workout_cycles(_auth_id uuid)
 returns jsonb
 language plpgsql
 security definer set search_path = 'public'
+stable
 as $$
 declare
     _user_id uuid := lookup_user_id(_auth_id);
@@ -637,6 +671,7 @@ create or replace function get_past_workout_instances(_auth_id uuid, _limit inte
 returns jsonb
 language plpgsql
 security definer set search_path = 'public'
+stable
 as $$
 declare
     _user_id uuid := lookup_user_id(_auth_id);
@@ -667,6 +702,7 @@ create or replace function get_exercise_history(_auth_id uuid, _workout_block_ex
 returns jsonb
 language plpgsql
 security definer set search_path = 'public'
+stable
 as $$
 declare
     _user_id uuid := lookup_user_id(_auth_id);
@@ -712,5 +748,210 @@ begin
                 workout_block_exercise_defs.id = matching_instances.workout_block_exercise_def_id
             )
     );
+end
+$$;
+
+-- Returns ExerciseIO.
+create or replace function get_exercise_io(_auth_id uuid, _id uuid)
+returns jsonb
+language plpgsql
+security definer set search_path = 'public'
+stable
+as $$
+declare
+    _user_id uuid := lookup_user_id(_auth_id);
+begin
+return (
+    select jsonb_strip_nulls(jsonb_build_object(
+        'id', exercises.id,
+        'name', exercises.name,
+        'description', exercises.description
+    ))
+    from exercises where id = _id
+);
+end;
+$$;
+
+-- Returns VariantIO.
+create or replace function get_variant_io(_auth_id uuid, _id uuid)
+returns jsonb
+language plpgsql
+security definer set search_path = 'public'
+stable
+as $$
+declare
+    _user_id uuid := lookup_user_id(_auth_id);
+begin
+return (
+    select jsonb_strip_nulls(jsonb_build_object(
+        'id', variants.id,
+        'name', variants.name,
+        'description', variants.description
+    ))
+    from variants where id = _id
+);
+end;
+$$;
+
+-- Returns WorkoutDefIO.
+create or replace function get_workout_def_io(_auth_id uuid, _id uuid)
+returns jsonb
+language plpgsql
+security definer set search_path = 'public'
+stable
+as $$
+declare
+    _user_id uuid := lookup_user_id(_auth_id);
+begin
+return (
+    with
+    block_exercise_variants as (
+    select
+        workout_block_exercise_defs.id workout_block_exercise_def_id,
+        array_agg(to_jsonb(variants.name) order by variants.name) variants
+    from
+        workout_block_defs
+        join workout_block_exercise_defs on (
+            workout_block_defs.id =
+                workout_block_exercise_defs.workout_block_def_id
+        )
+        join workout_block_exercise_variants on (
+            workout_block_exercise_defs.id =
+                workout_block_exercise_variants.workout_block_exercise_def_id
+        )
+        join variants on (
+            workout_block_exercise_variants.variant_id = variants.id
+        )
+    where
+        workout_block_defs.workout_def_id = _id
+    group by
+        workout_block_exercise_defs.id
+    ),
+    block_exercises as (
+    select
+        workout_block_defs.id,
+        coalesce(jsonb_agg(
+            (
+                (to_jsonb(workout_block_exercise_defs) - ARRAY['id', 'created', 'workout_block_def_id', 'ordinal', 'exercise_id']) ||
+                jsonb_build_object(
+                    'exercise', to_jsonb(exercises.name),
+                    'variants', to_jsonb(block_exercise_variants.variants)
+                )
+            ) order by workout_block_exercise_defs.ordinal), '[]'::jsonb) exercises
+    from
+        workout_block_defs
+            join workout_block_exercise_defs on workout_block_defs.id = workout_block_exercise_defs.workout_block_def_id
+            join exercises on exercises.id = workout_block_exercise_defs.exercise_id
+            left join block_exercise_variants on (
+                workout_block_exercise_defs.id =
+                    block_exercise_variants.workout_block_exercise_def_id
+            )
+    where
+        workout_block_defs.workout_def_id = _id
+    group by
+        workout_block_defs.id
+    ),
+    blocks as (
+    select
+        coalesce(jsonb_agg(
+            (
+                (to_jsonb(workout_block_defs) - ARRAY['id', 'created', 'workout_def_id', 'ordinal'])
+                || jsonb_build_object('exercises', block_exercises.exercises)
+            ) order by workout_block_defs.ordinal), '[]'::jsonb) blocks
+    from
+        workout_block_defs join block_exercises using (id)
+    )
+    select jsonb_strip_nulls(
+        (to_jsonb(workout_defs) - ARRAY ['created', 'user_id']) || jsonb_build_object('blocks', blocks)
+    )
+    from workout_defs join blocks on true
+    where workout_defs.id = _id
+);
+end;
+$$;
+
+-- Returns WorkoutCycleIO.
+create or replace function get_workout_cycle_io(_auth_id uuid, _id uuid)
+returns jsonb
+language plpgsql
+security definer set search_path = 'public'
+stable
+as $$
+declare
+    _user_id uuid := lookup_user_id(_auth_id);
+begin
+return (
+    with
+    cycle_entries as (
+    select
+        coalesce(jsonb_agg(workout_defs.name order by workout_cycle_entries.ordinal), '[]'::jsonb) vals
+    from
+        workout_cycle_entries
+        join workout_defs on workout_cycle_entries.workout_def_id = workout_defs.id
+    where
+        workout_cycle_entries.workout_cycle_id = _id
+    )
+    select jsonb_strip_nulls(
+        (to_jsonb(workout_cycles) - ARRAY['created', 'user_id']) ||
+        jsonb_build_object('entries', cycle_entries.vals)
+    )
+    from workout_cycles join cycle_entries on true
+    where workout_cycles.id = _id
+);
+end
+$$;
+
+-- Returns { "exercises": [ExerciseIO], "variants": [VariantIO], "workout_defs":
+-- [WorkoutDefIO], "workout_cycles": [WorkoutCycleIO], "workout_instances":
+-- [WorkoutInstanceDenormalized] }.
+create or replace function get_io_data(
+    _auth_id uuid,
+    _include_exercises boolean,
+    _include_workout_defs boolean,
+    _include_workout_cycles boolean,
+    _include_workout_instances boolean)
+returns jsonb
+language plpgsql
+security definer set search_path = 'public'
+stable
+as $$
+declare
+    _user_id uuid := lookup_user_id(_auth_id);
+begin
+return (
+    with
+    exercise_ios as (
+        select coalesce(jsonb_agg(get_exercise_io(_auth_id, exercises.id)), '[]'::jsonb) vals
+        from exercises
+        where _include_exercises
+    ),
+    variant_ios as (
+        select coalesce(jsonb_agg(get_variant_io(_auth_id, variants.id)), '[]'::jsonb) vals
+        from variants
+        where _include_exercises
+    ),
+    workout_def_ios as (
+        select coalesce(jsonb_agg(get_workout_def_io(_auth_id, workout_defs.id)), '[]'::jsonb) vals
+        from workout_defs
+        where _include_workout_defs and workout_defs.user_id = _user_id
+    ),
+    workout_cycle_ios as (
+        select coalesce(jsonb_agg(get_workout_cycle_io(_auth_id, workout_cycles.id)), '[]'::jsonb) vals
+        from workout_cycles
+        where _include_workout_cycles and workout_cycles.user_id = _user_id
+    ),
+    workout_instances as (
+        select coalesce(jsonb_agg(get_workout_instance(_auth_id, workout_instances.id)), '[]'::jsonb) vals
+        from workout_instances
+        where _include_workout_instances and workout_instances.user_id = _user_id
+    )
+    select jsonb_strip_nulls(
+        case when _include_exercises then jsonb_build_object('exercises', exercise_ios.vals, 'variants', variant_ios.vals) else '{}'::jsonb end ||
+        case when _include_workout_defs then jsonb_build_object('workout_defs', workout_def_ios.vals) else '{}'::jsonb end ||
+        case when _include_workout_cycles then jsonb_build_object('workout_cycles', workout_cycle_ios.vals) else '{}'::jsonb end ||
+        case when _include_workout_instances then jsonb_build_object('workout_instances', workout_instances.vals) else '{}'::jsonb end
+    )
+    from exercise_ios, variant_ios, workout_def_ios, workout_cycle_ios, workout_instances
+  );
 end
 $$;

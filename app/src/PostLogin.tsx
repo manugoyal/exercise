@@ -24,6 +24,19 @@ export function PostLogin() {
           </button>
         </li>
       </ul>
+      App management:
+      <ul>
+        <li key="settings">
+          <button onClick={() => pushNavState({ status: "settings" })}>
+            Settings
+          </button>
+        </li>
+        <li key="import_export">
+          <button onClick={() => pushNavState({ status: "import_export" })}>
+            Import/export data
+          </button>
+        </li>
+      </ul>
     </nav>
   );
 }

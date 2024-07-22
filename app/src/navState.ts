@@ -7,6 +7,8 @@ import { PlaythroughState } from "./playthroughTypes";
 
 export type NavStatePostLogin = { status: "post_login" };
 export type NavStatePickWorkoutCycle = { status: "pick_workout_cycle" };
+export type NavStateSettings = { status: "settings" };
+export type NavStateImportExport = { status: "import_export" };
 export type NavStatePickPastWorkoutInstances = {
   status: "pick_past_workout_instances";
 };
@@ -37,7 +39,9 @@ export type NavState =
   | NavStateViewWorkoutDef
   | NavStateViewWorkoutInstance
   | NavStatePlaythroughWorkoutInstance
-  | NavStateViewExerciseHistory;
+  | NavStateViewExerciseHistory
+  | NavStateSettings
+  | NavStateImportExport;
 
 export type NavStateContextT = {
   navStateStack: NavState[];
