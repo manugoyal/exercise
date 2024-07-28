@@ -74,5 +74,10 @@ export const ioDataSchema = z.object({
   workout_defs: workoutDefIOSchema.array().nullish(),
   workout_cycles: workoutCycleIOSchema.array().nullish(),
   workout_instances: workoutInstanceDenormalizedSchema.array().nullish(),
+
+  delete_exercise_ids: z.string().uuid().array().nullish(),
+  delete_variant_ids: z.string().uuid().array().nullish(),
+  delete_workout_def_ids: z.string().uuid().array().nullish(),
+  delete_workout_cycle_ids: z.string().uuid().array().nullish(),
 });
 export type IOData = z.infer<typeof ioDataSchema>;

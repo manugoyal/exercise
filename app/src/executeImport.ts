@@ -17,8 +17,10 @@ import { v4 as uuid4 } from "uuid";
 export type ExecutableImport = {
   _insert_exercises: Exercise[];
   _update_exercises: Exercise[];
+  _delete_exercise_ids: string[];
   _insert_variants: Variant[];
   _update_variants: Variant[];
+  _delete_variant_ids: string[];
   _insert_workout_defs: WorkoutDef[];
   _update_workout_defs: WorkoutDef[];
   _insert_workout_block_defs: WorkoutBlockDef[];
@@ -27,10 +29,12 @@ export type ExecutableImport = {
   _update_workout_block_exercise_defs: WorkoutBlockExerciseDef[];
   _insert_workout_block_exercise_variants: WorkoutBlockExerciseVariant[];
   _update_workout_block_exercise_variants: WorkoutBlockExerciseVariant[];
+  _delete_workout_def_ids: string[];
   _insert_workout_cycles: WorkoutCycle[];
   _update_workout_cycles: WorkoutCycle[];
   _insert_workout_cycle_entries: WorkoutCycleEntry[];
   _update_workout_cycle_entries: WorkoutCycleEntry[];
+  _delete_workout_cycle_ids: string[];
 };
 
 export async function transformIoData({
@@ -48,8 +52,10 @@ export async function transformIoData({
   const ret: ExecutableImport = {
     _insert_exercises: [],
     _update_exercises: [],
+    _delete_exercise_ids: ioData.delete_exercise_ids ?? [],
     _insert_variants: [],
     _update_variants: [],
+    _delete_variant_ids: ioData.delete_variant_ids ?? [],
     _insert_workout_defs: [],
     _update_workout_defs: [],
     _insert_workout_block_defs: [],
@@ -58,10 +64,12 @@ export async function transformIoData({
     _update_workout_block_exercise_defs: [],
     _insert_workout_block_exercise_variants: [],
     _update_workout_block_exercise_variants: [],
+    _delete_workout_def_ids: ioData.delete_workout_def_ids ?? [],
     _insert_workout_cycles: [],
     _update_workout_cycles: [],
     _insert_workout_cycle_entries: [],
     _update_workout_cycle_entries: [],
+    _delete_workout_cycle_ids: ioData.delete_workout_cycle_ids ?? [],
   };
 
   const usedExerciseNames = new Set<string>();
@@ -86,21 +94,21 @@ export async function transformIoData({
   });
 
   const exerciseNameToId = z.record(z.string().uuid()).parse(
-    connection.runRpc("get_exercises_by_name", {
+    await connection.runRpc("get_exercises_by_name", {
       _auth_id: connection.auth_id,
       _names: Array.from(usedExerciseNames),
     }),
   );
 
   const variantNameToId = z.record(z.string().uuid()).parse(
-    connection.runRpc("get_variants_by_name", {
+    await connection.runRpc("get_variants_by_name", {
       _auth_id: connection.auth_id,
       _names: Array.from(usedVariantNames),
     }),
   );
 
   const workoutDefNameToId = z.record(z.string().uuid()).parse(
-    connection.runRpc("get_workout_defs_by_name", {
+    await connection.runRpc("get_workout_defs_by_name", {
       _auth_id: connection.auth_id,
       _names: Array.from(usedWorkoutDefNames),
     }),
@@ -199,6 +207,58 @@ export async function transformIoData({
   });
 
   return ret;
+}
+
+export async function executeImport({
+  connection,
+  importData,
+  opts,
+}: {
+  connection: Connection;
+  importData: ExecutableImport;
+  opts?: {
+    forbidInserts?: boolean;
+    forbidUpdates?: boolean;
+  };
+}): Promise<void> {
+  console.log("Running import\n", importData);
+  if (opts?.forbidInserts) {
+    if (
+      importData._insert_exercises.length ||
+      importData._insert_variants.length ||
+      importData._insert_workout_defs.length ||
+      importData._insert_workout_block_defs.length ||
+      importData._insert_workout_block_exercise_defs.length ||
+      importData._insert_workout_block_exercise_variants.length ||
+      importData._insert_workout_cycles.length ||
+      importData._insert_workout_cycle_entries.length
+    ) {
+      throw new Error("Inserts forbidden");
+    }
+  }
+  if (opts?.forbidUpdates) {
+    if (
+      importData._update_exercises.length ||
+      importData._update_variants.length ||
+      importData._update_workout_defs.length ||
+      importData._update_workout_block_defs.length ||
+      importData._update_workout_block_exercise_defs.length ||
+      importData._update_workout_block_exercise_variants.length ||
+      importData._update_workout_cycles.length ||
+      importData._update_workout_cycle_entries.length ||
+      importData._delete_exercise_ids.length ||
+      importData._delete_variant_ids.length ||
+      importData._delete_workout_def_ids.length ||
+      importData._delete_workout_cycle_ids.length
+    ) {
+      throw new Error("Updates forbidden");
+    }
+  }
+
+  await connection.runRpc("execute_import", {
+    _auth_id: connection.auth_id,
+    ...importData,
+  });
 }
 
 function recordFind<K extends string | number | symbol, V>(

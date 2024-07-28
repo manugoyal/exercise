@@ -1,16 +1,14 @@
 import { createContext, useState } from "react";
-import { SupabaseClient, createClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { bark } from "./bark";
 
 export type Connection = {
-  client: SupabaseClient;
   auth_id: string;
   runRpc: (fn: string, args?: unknown) => Promise<unknown>;
 };
 
 export const ConnectionContext = createContext<Connection>({
-  client: undefined as unknown as SupabaseClient,
   auth_id: undefined as unknown as string,
   runRpc: async () => {},
 });
@@ -55,7 +53,7 @@ export function useMakeConnection() {
       }),
     );
     if (auth_id) {
-      setConnection({ client, auth_id, runRpc });
+      setConnection({ auth_id, runRpc });
     }
   }
 

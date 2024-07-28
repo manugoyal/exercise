@@ -462,9 +462,9 @@ declare
     _user_id uuid := lookup_user_id(_auth_id);
 begin
 return (
-    select jsonb_agg(
+    select coalesce(jsonb_agg(
         get_workout_cycle(_auth_id, workout_cycles.id)
-        order by workout_cycles.id)
+        order by workout_cycles.id), '[]'::jsonb)
     from workout_cycles
     where user_id = _user_id
 );
@@ -834,7 +834,7 @@ return (
         workout_block_defs.id,
         coalesce(jsonb_agg(
             (
-                (to_jsonb(workout_block_exercise_defs) - ARRAY['id', 'created', 'workout_block_def_id', 'ordinal', 'exercise_id']) ||
+                (to_jsonb(workout_block_exercise_defs) - ARRAY['created', 'workout_block_def_id', 'ordinal', 'exercise_id']) ||
                 jsonb_build_object(
                     'exercise', to_jsonb(exercises.name),
                     'variants', to_jsonb(block_exercise_variants.variants)
@@ -857,7 +857,7 @@ return (
     select
         coalesce(jsonb_agg(
             (
-                (to_jsonb(workout_block_defs) - ARRAY['id', 'created', 'workout_def_id', 'ordinal'])
+                (to_jsonb(workout_block_defs) - ARRAY['created', 'workout_def_id', 'ordinal'])
                 || jsonb_build_object('exercises', block_exercises.exercises)
             ) order by workout_block_defs.ordinal), '[]'::jsonb) blocks
     from
@@ -1084,6 +1084,36 @@ where exercises.id = update_records.id;
 end;
 $$;
 
+-- Deletes each of the given exercise records.
+create or replace function delete_exercises(_auth_id uuid, _exercise_ids uuid[])
+returns void
+language plpgsql
+security definer set search_path = 'public'
+as $$
+declare
+    _user_id uuid := lookup_user_id(_auth_id);
+    _superuser_id uuid;
+    _num_ops bigint;
+begin
+if cardinality(_exercise_ids) = 0 then
+    return;
+end if;
+-- Permission checks.
+select user_id into _superuser_id from superusers where user_id = _user_id;
+if not found then
+    raise exception 'User does not have permission to delete exercises';
+end if;
+select count(*) into _num_ops
+from (
+    select 1 from unnest(_exercise_ids) item join exercises on item = exercises.id
+) "t";
+if _num_ops <> cardinality(_exercise_ids) then
+    raise exception 'Invalid delete exercises';
+end if;
+delete from exercises where id = any(_exercise_ids);
+end;
+$$;
+
 -- Inserts each of the variant records into the database.
 create or replace function insert_variants(_auth_id uuid, _variants variants[])
 returns void
@@ -1134,6 +1164,36 @@ where variants.id = update_records.id;
 end;
 $$;
 
+-- Deletes each of the given variant records.
+create or replace function delete_variants(_auth_id uuid, _variant_ids uuid[])
+returns void
+language plpgsql
+security definer set search_path = 'public'
+as $$
+declare
+    _user_id uuid := lookup_user_id(_auth_id);
+    _superuser_id uuid;
+    _num_ops bigint;
+begin
+if cardinality(_variant_ids) = 0 then
+    return;
+end if;
+-- Permission checks.
+select user_id into _superuser_id from superusers where user_id = _user_id;
+if not found then
+    raise exception 'User does not have permission to delete variants';
+end if;
+select count(*) into _num_ops
+from (
+    select 1 from unnest(_variant_ids) item join variants on item = variants.id
+) "t";
+if _num_ops <> cardinality(_variant_ids) then
+    raise exception 'Invalid delete variants';
+end if;
+delete from variants where id = any(_variant_ids);
+end;
+$$;
+
 -- Inserts each of the workout defs into the database.
 create or replace function insert_workout_defs(
     _auth_id uuid,
@@ -1149,32 +1209,6 @@ declare
     _user_id uuid := lookup_user_id(_auth_id);
     _num_ops bigint;
 begin
--- Permission checks.
-select count(*) into _num_ops
-from (
-    select 1 from unnest(_workout_block_defs)
-    where workout_def_id in (select id from unnest(_workout_defs))
-) "t";
-if _num_ops <> cardinality(_workout_block_defs) then
-    raise exception 'Invalid workout block defs';
-end if;
-select count(*) into _num_ops
-from (
-    select 1 from unnest(_workout_block_exercise_defs)
-    where workout_block_def_id in (select id from unnest(_workout_block_defs))
-) "t";
-if _num_ops <> cardinality(_work) then
-    raise exception 'Invalid workout block exercise defs';
-end if;
-select count(*) into _num_ops
-from (
-    select 1 from unnest(_workout_block_exercise_variants)
-    where workout_block_exercise_def_id in (select id from unnest(_workout_block_exercise_defs))
-) "t";
-if _num_ops <> cardinality(_work) then
-    raise exception 'Invalid workout block exercise variants';
-end if;
--- Do insertions.
 insert into workout_defs(id, user_id, name, description)
 select id, _user_id, name, description from unnest(_workout_defs);
 insert into workout_block_defs(id, name, description, workout_def_id, ordinal, sets, transition_time)
@@ -1212,7 +1246,7 @@ from (
     where workout_defs.user_id = _user_id
 ) "t";
 if _num_ops <> cardinality(_workout_defs) then
-    raise exception 'Invalid workout defs';
+    raise exception 'Invalid update workout defs';
 end if;
 select count(*) into _num_ops
 from (
@@ -1223,7 +1257,7 @@ from (
     where workout_defs.user_id = _user_id
 ) "t";
 if _num_ops <> cardinality(_workout_block_defs) then
-    raise exception 'Invalid workout block defs';
+    raise exception 'Invalid update workout block defs';
 end if;
 select count(*) into _num_ops
 from (
@@ -1235,7 +1269,7 @@ from (
     where workout_defs.user_id = _user_id
 ) "t";
 if _num_ops <> cardinality(_workout_block_exercise_defs) then
-    raise exception 'Invalid workout block exercise defs';
+    raise exception 'Invalid update workout block exercise defs';
 end if;
 select count(*) into _num_ops
 from (
@@ -1247,7 +1281,7 @@ from (
     where workout_defs.user_id = _user_id
 ) "t";
 if _num_ops <> cardinality(_workout_block_exercise_variants) then
-    raise exception 'Invalid workout block exercise variants';
+    raise exception 'Invalid update workout block exercise variants';
 end if;
 -- Do updates.
 with
@@ -1285,8 +1319,10 @@ select workout_block_exercise_def_id, variant_id from unnest(_workout_block_exer
 end;
 $$;
 
--- Inserts each of the workout cycles into the database.
-create or replace function insert_workout_cycles(_auth_id uuid, _workout_cycles workout_cycles[], _workout_cycle_entries workout_cycle_entries[])
+-- Deletes each of the workout defs.
+create or replace function delete_workout_defs(
+    _auth_id uuid,
+    _workout_def_ids uuid[])
 returns void
 language plpgsql
 security definer set search_path = 'public'
@@ -1298,17 +1334,60 @@ begin
 -- Permission checks.
 select count(*) into _num_ops
 from (
-    select 1 from unnest(_workout_cycle_entries)
-    where workout_cycle_id in (select id from unnest(_workout_cycles))
+    select 1 from
+        unnest(_workout_def_ids) item
+        join workout_defs on item = workout_defs.id
+    where workout_defs.user_id = _user_id
 ) "t";
-if _num_ops <> cardinality(_workout_cycle_entries) then
-    raise exception 'Invalid workout cycle entries';
+if _num_ops <> cardinality(_workout_def_ids) then
+    raise exception 'Invalid delete workout defs';
 end if;
--- Do inserts.
+-- Do deletes.
+with ids as (
+select workout_block_exercise_defs.id
+from
+    workout_block_exercise_defs
+    join workout_block_defs on workout_block_exercise_defs.workout_block_def_id = workout_block_defs.id
+    join workout_defs on workout_block_defs.workout_def_id = workout_defs.id
+where workout_defs.id = any(_workout_def_ids)
+)
+delete from workout_block_exercise_variants
+where workout_block_exercise_def_id in (select id from ids);
+with ids as (
+select workout_block_exercise_defs.id
+from
+    workout_block_exercise_defs
+    join workout_block_defs on workout_block_exercise_defs.workout_block_def_id = workout_block_defs.id
+    join workout_defs on workout_block_defs.workout_def_id = workout_defs.id
+where workout_defs.id = any(_workout_def_ids)
+)
+delete from workout_block_exercise_defs where id in (select id from ids);
+with ids as (
+select workout_block_defs.id
+from
+    workout_block_defs
+    join workout_defs on workout_block_defs.workout_def_id = workout_defs.id
+where workout_defs.id = any(_workout_def_ids)
+)
+delete from workout_block_defs where id in (select id from ids);
+delete from workout_defs where id = any(_workout_def_ids);
+end;
+$$;
+
+-- Inserts each of the workout cycles into the database.
+create or replace function insert_workout_cycles(_auth_id uuid, _workout_cycles workout_cycles[], _workout_cycle_entries workout_cycle_entries[])
+returns void
+language plpgsql
+security definer set search_path = 'public'
+as $$
+declare
+    _user_id uuid := lookup_user_id(_auth_id);
+    _num_ops bigint;
+begin
 insert into workout_cycles(id, name, description, user_id)
 select id, name, description, _user_id from unnest(_workout_cycles);
-insert into workout_cycle_entries(id, workout_cycle_id, workout_def_id, ordinal)
-select id, workout_cycle_id, workout_def_id, ordinal
+insert into workout_cycle_entries(workout_cycle_id, workout_def_id, ordinal)
+select workout_cycle_id, workout_def_id, ordinal
 from unnest(_workout_cycle_entries);
 end;
 $$;
@@ -1332,7 +1411,7 @@ from (
     where workout_cycles.user_id = _user_id
 ) "t";
 if _num_ops <> cardinality(_workout_cycles) then
-    raise exception 'Invalid workout cycles';
+    raise exception 'Invalid update workout cycles';
 end if;
 select count(*) into _num_ops
 from (
@@ -1342,7 +1421,7 @@ from (
     where workout_cycles.user_id = _user_id
 ) "t";
 if _num_ops <> cardinality(_workout_cycle_entries) then
-    raise exception 'Invalid workout cycle entries';
+    raise exception 'Invalid update workout cycle entries';
 end if;
 -- Do updates.
 with
@@ -1353,14 +1432,37 @@ update workout_cycles
 set name = update_records.name, description = update_records.description
 from update_records
 where workout_cycles.id = update_records.id;
-with
-update_records as (
-    select id, workout_cycle_id, workout_def_id, ordinal from unnest(_workout_cycle_entries)
-)
-update workout_cycle_entries
-set workout_def_id = update_records.workout_def_id, ordinal = update_records.ordinal
-from update_records
-where workout_cycle_entries.id = update_records.id;
+delete from workout_cycle_entries
+where workout_cycle_id in (select workout_cycle_id from unnest(_workout_cycle_entries));
+insert into workout_cycle_entries(workout_cycle_id, workout_def_id, ordinal)
+select workout_cycle_id, workout_def_id, ordinal from unnest(_workout_cycle_entries);
+end;
+$$;
+
+-- Deletes each of the workout cycle records.
+create or replace function delete_workout_cycles(_auth_id uuid, _workout_cycle_ids uuid[])
+returns void
+language plpgsql
+security definer set search_path = 'public'
+as $$
+declare
+    _user_id uuid := lookup_user_id(_auth_id);
+    _num_ops bigint;
+begin
+-- Permission checks.
+select count(*) into _num_ops
+from (
+    select 1 from
+        unnest(_workout_cycle_ids) item
+        join workout_cycles on item = workout_cycles.id
+    where workout_cycles.user_id = _user_id
+) "t";
+if _num_ops <> cardinality(_workout_cycle_ids) then
+    raise exception 'Invalid delete workout cycles';
+end if;
+-- Do deletes.
+delete from workout_cycle_entries where workout_cycle_id = any(_workout_cycle_ids);
+delete from workout_cycles where id = any(_workout_cycle_ids);
 end;
 $$;
 
@@ -1369,8 +1471,10 @@ create or replace function execute_import(
     _auth_id uuid,
     _insert_exercises exercises[],
     _update_exercises exercises[],
+    _delete_exercise_ids uuid[],
     _insert_variants variants[],
     _update_variants variants[],
+    _delete_variant_ids uuid[],
     _insert_workout_defs workout_defs[],
     _update_workout_defs workout_defs[],
     _insert_workout_block_defs workout_block_defs[],
@@ -1379,26 +1483,32 @@ create or replace function execute_import(
     _update_workout_block_exercise_defs workout_block_exercise_defs[],
     _insert_workout_block_exercise_variants workout_block_exercise_variants[],
     _update_workout_block_exercise_variants workout_block_exercise_variants[],
+    _delete_workout_def_ids uuid[],
     _insert_workout_cycles workout_cycles[],
     _update_workout_cycles workout_cycles[],
     _insert_workout_cycle_entries workout_cycle_entries[],
-    _update_workout_cycle_entries workout_cycle_entries[])
+    _update_workout_cycle_entries workout_cycle_entries[],
+    _delete_workout_cycle_ids uuid[])
 returns void
 language plpgsql
 security definer set search_path = 'public'
 as $$
 begin
-perform insert_exercises(_auth_id, _insert_exercises);
+perform delete_workout_cycles(_auth_id, _delete_workout_cycle_ids);
+perform delete_workout_defs(_auth_id, _delete_workout_def_ids);
+perform delete_variants(_auth_id, _delete_variant_ids);
+perform delete_exercises(_auth_id, _delete_exercise_ids);
 perform update_exercises(_auth_id, _update_exercises);
-perform insert_variants(_auth_id, _insert_variants);
+perform insert_exercises(_auth_id, _insert_exercises);
 perform update_variants(_auth_id, _update_variants);
-perform insert_workout_defs(
-    _auth_id, _insert_workout_defs, _insert_workout_block_defs, _insert_workout_block_exercise_defs,
-    _insert_workout_block_exercise_variants);
+perform insert_variants(_auth_id, _insert_variants);
 perform update_workout_defs(
     _auth_id, _update_workout_defs, _update_workout_block_defs, _update_workout_block_exercise_defs,
     _update_workout_block_exercise_variants);
-perform insert_workout_cycles(_auth_id, _insert_workout_cycles, _insert_workout_cycle_entries);
+perform insert_workout_defs(
+    _auth_id, _insert_workout_defs, _insert_workout_block_defs, _insert_workout_block_exercise_defs,
+    _insert_workout_block_exercise_variants);
 perform update_workout_cycles(_auth_id, _update_workout_cycles, _update_workout_cycle_entries);
+perform insert_workout_cycles(_auth_id, _insert_workout_cycles, _insert_workout_cycle_entries);
 end;
 $$;
