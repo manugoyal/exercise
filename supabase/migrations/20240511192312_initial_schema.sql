@@ -1042,14 +1042,9 @@ security definer set search_path = 'public'
 as $$
 declare
     _user_id uuid := lookup_user_id(_auth_id);
-    _superuser_id uuid;
 begin
 if cardinality(_exercises) = 0 then
     return;
-end if;
-select user_id into _superuser_id from superusers where user_id = _user_id;
-if not found then
-    raise exception 'User does not have permission to insert exercises';
 end if;
 insert into exercises(id, name, description)
 select id, name, description from unnest(_exercises);
@@ -1122,14 +1117,9 @@ security definer set search_path = 'public'
 as $$
 declare
     _user_id uuid := lookup_user_id(_auth_id);
-    _superuser_id uuid;
 begin
 if cardinality(_variants) = 0 then
     return;
-end if;
-select user_id into _superuser_id from superusers where user_id = _user_id;
-if not found then
-    raise exception 'User does not have permission to insert variants';
 end if;
 insert into variants(id, name, description)
 select id, name, description from unnest(_variants);
