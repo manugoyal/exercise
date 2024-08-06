@@ -1,0 +1,3 @@
+# Prompt for generating an exercise description.
+
+Give me a detailed description of the following exercise. Make sure to emphasize which muscles ought to be properly activated. Emphasize good form. The description should be around 40-80 words:

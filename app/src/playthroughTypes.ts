@@ -1,4 +1,5 @@
 import { WorkoutInstanceDenormalized } from "./typespecs/denormalized_types";
+import { isRecoverExercise } from "./util";
 
 export type PlaythroughPhaseState = "transition" | "play";
 export type PlaythroughTimerEntry = { type: "resume" | "pause"; time: Date };
@@ -25,8 +26,9 @@ export function getPlaythroughExerciseInitialState({
   const { workout_block_idx, block_exercise_idx, instance } = entry;
   const workoutBlock = workout.workout_def.blocks[workout_block_idx];
   const blockExercise = workoutBlock.exercises[block_exercise_idx];
-  const phase =
-    blockExercise.exercise.name === "recover" ? "play" : "transition";
+  const phase = isRecoverExercise(blockExercise.exercise.name)
+    ? "play"
+    : "transition";
   return {
     workout,
     workout_block_exercise_instance_id: instance.id,

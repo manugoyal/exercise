@@ -47,3 +47,7 @@ export function cartesianProduct<A, B>(
     }),
   );
 }
+
+export function isRecoverExercise(name: string) {
+  return name.toLocaleLowerCase() === "recover";
+}

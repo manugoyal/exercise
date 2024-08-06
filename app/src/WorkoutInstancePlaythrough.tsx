@@ -10,6 +10,7 @@ import {
 } from "./playthroughTypes";
 import { useSetQuantityModal } from "./useSetQuantityModal";
 import { workoutInstanceDenormalizedSchema } from "./typespecs/denormalized_types";
+import { DEFAULT_TRANSITION_TIME_S } from "./constants";
 
 export function WorkoutInstancePlaythrough({
   playthroughState,
@@ -75,7 +76,10 @@ export function WorkoutInstancePlaythrough({
       });
     const elapsedTime = tailState.elapsedTimeMs / 1000;
     if (phase === "transition") {
-      return Math.ceil((workoutBlock.transition_time ?? 5) - elapsedTime);
+      return Math.ceil(
+        (workoutBlock.transition_time ?? DEFAULT_TRANSITION_TIME_S) -
+          elapsedTime,
+      );
     } else if (blockExercise.limit_type === "reps") {
       return undefined;
     } else {
