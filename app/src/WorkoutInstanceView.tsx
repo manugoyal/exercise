@@ -153,25 +153,6 @@ export function WorkoutInstanceView({
     });
   }, [connection, pushNavState, sortedEntries, workoutInstance]);
 
-  const handleResumeWorkout = useCallback(() => {
-    if (!(workoutInstance && sortedEntries && nextExerciseIdx !== undefined)) {
-      alert("Workout has not loaded");
-      return;
-    }
-    if (!sortedEntries.length) {
-      throw new Error("Cannot resume workout: it has no exercises");
-    }
-    pushNavState({
-      status: "playthrough_workout_instance",
-      data: {
-        playthroughState: getPlaythroughExerciseInitialState({
-          workout: workoutInstance,
-          entry: sortedEntries[nextExerciseIdx],
-        }),
-      },
-    });
-  }, [nextExerciseIdx, pushNavState, sortedEntries, workoutInstance]);
-
   const resumeWorkoutAtInstance = useCallback(
     (entry: PlaythroughExerciseInitialStateEntry) => {
       if (!workoutInstance) {
@@ -212,14 +193,12 @@ export function WorkoutInstanceView({
       <div>
         <NestedObjectPicker nestedObject={nestedObject} />
         <br />
-        {canResume ? (
-          <button onClick={handleResumeWorkout}> Resume workout! </button>
-        ) : (
+        {workoutInstance && !canResume ? (
           <button onClick={handleStartWorkout}>
             {" "}
             {workoutInstance.started ? "Restart" : "Start"} workout!{" "}
           </button>
-        )}
+        ) : null}
         <br />
         <button onClick={handleSetDescription}> Set instance notes </button>
         <br />

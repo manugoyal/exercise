@@ -44,15 +44,19 @@ export type NavState =
   | NavStateImportExport;
 
 export type NavStateContextT = {
-  navStateStack: NavState[];
+  navStatePushStack: NavState[];
+  navStatePopStack: NavState[];
   pushNavState: (x: NavState) => void;
   popNavState: () => void;
+  reversePopNavState: () => void;
   replaceNavState: (x: NavState | ((current: NavState) => NavState)) => void;
 };
 
 export const NavStateContext = createContext<NavStateContextT>({
-  navStateStack: [],
+  navStatePushStack: [],
+  navStatePopStack: [],
   pushNavState: () => {},
   popNavState: () => {},
+  reversePopNavState: () => {},
   replaceNavState: () => {},
 });

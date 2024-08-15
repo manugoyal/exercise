@@ -14,24 +14,44 @@ import { ImportExport } from "./ImportExport";
 
 export function EntryPoint() {
   const { connection, loginForm } = useMakeConnection();
-  const [navStateStack, setNavStateStack] = useState<NavState[]>([
+  const [navStatePushStack, setNavStatePushStack] = useState<NavState[]>([
     { status: "post_login" },
   ]);
+  const [navStatePopStack, setNavStatePopStack] = useState<NavState[]>([]);
 
-  const pushNavState = useCallback(
-    (x: NavState) => setNavStateStack((s) => s.concat([x])),
-    [],
-  );
+  const pushNavState = useCallback((x: NavState) => {
+    setNavStatePushStack((s) => s.concat([x]));
+    setNavStatePopStack([]);
+  }, []);
   const popNavState = useCallback(
     () =>
-      setNavStateStack((s) => {
-        return s.length > 1 ? s.slice(0, -1) : s;
+      setNavStatePushStack((s) => {
+        const popped = s.at(-1);
+        if (popped) {
+          setNavStatePopStack((popS) => popS.concat([popped]));
+          return s.slice(0, -1);
+        } else {
+          return s;
+        }
+      }),
+    [],
+  );
+  const reversePopNavState = useCallback(
+    () =>
+      setNavStatePopStack((s) => {
+        const popped = s.at(-1);
+        if (popped) {
+          setNavStatePushStack((pushS) => pushS.concat([popped]));
+          return s.slice(0, -1);
+        } else {
+          return s;
+        }
       }),
     [],
   );
   const replaceNavState = useCallback(
     (x: NavState | ((current: NavState) => NavState)) => {
-      setNavStateStack((s) => {
+      setNavStatePushStack((s) => {
         const current = s.at(-1);
         if (!current) return s;
         const nextState = x instanceof Function ? x(current) : x;
@@ -42,12 +62,21 @@ export function EntryPoint() {
   );
   const navStateContext = useMemo(
     (): NavStateContextT => ({
-      navStateStack,
+      navStatePushStack,
+      navStatePopStack,
       pushNavState,
       popNavState,
+      reversePopNavState,
       replaceNavState,
     }),
-    [navStateStack, popNavState, pushNavState, replaceNavState],
+    [
+      navStatePushStack,
+      navStatePopStack,
+      popNavState,
+      pushNavState,
+      reversePopNavState,
+      replaceNavState,
+    ],
   );
 
   if (connection === undefined) {
@@ -65,8 +94,8 @@ export function EntryPoint() {
 }
 
 function EntryPointNav() {
-  const { navStateStack } = useContext(NavStateContext);
-  const navState = navStateStack.at(-1);
+  const { navStatePushStack } = useContext(NavStateContext);
+  const navState = navStatePushStack.at(-1);
   if (!navState) {
     throw new Error("Impossible: reached empty NavState");
   }
@@ -94,10 +123,26 @@ function EntryPointNav() {
 }
 
 function BackToStartFooter() {
-  const { popNavState } = useContext(NavStateContext);
+  const {
+    navStatePushStack,
+    navStatePopStack,
+    popNavState,
+    reversePopNavState,
+  } = useContext(NavStateContext);
   return (
     <footer>
-      <button onClick={popNavState}> Go back </button>
+      {navStatePushStack.length > 1 ? (
+        <>
+          <button onClick={popNavState}> Go back </button>
+          <br />
+        </>
+      ) : null}
+      {navStatePopStack.length ? (
+        <>
+          <button onClick={reversePopNavState}> Go forward </button>
+          <br />
+        </>
+      ) : null}
     </footer>
   );
 }

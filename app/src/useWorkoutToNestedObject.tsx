@@ -57,7 +57,7 @@ function collectRelatedWorkoutBlockExerciseDefIds({
   const ignoreVariantNames = new Set<string>(["left side", "right side"]);
   function variantsKey(variants: Variant[]): string {
     const ids = variants
-      .filter((v) => !ignoreVariantNames.has(v.name))
+      .filter((v) => !ignoreVariantNames.has(v.name.toLowerCase()))
       .map((v) => v.id);
     ids.sort();
     return ids.join(",");
