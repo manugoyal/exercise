@@ -1,3 +1,5 @@
+import pluralize from "pluralize";
+
 export function createdOnText(d: Date | null | undefined): string | undefined {
   if (d) {
     return `Created on ${d.toLocaleString()}`;
@@ -50,4 +52,17 @@ export function cartesianProduct<A, B>(
 
 export function isRecoverExercise(name: string) {
   return name.toLocaleLowerCase() === "recover";
+}
+
+export function displayTime({ seconds }: { seconds: number }) {
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = Math.round((seconds % 60) * 100) / 100;
+  let ret = "";
+  if (minutes > 0) {
+    ret += `${pluralize("minute", minutes, true)}`;
+  }
+  if (remainingSeconds > 0) {
+    ret += `${ret ? ", " : ""}${pluralize("second", remainingSeconds, true)}`;
+  }
+  return ret;
 }

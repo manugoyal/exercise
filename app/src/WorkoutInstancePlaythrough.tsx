@@ -44,6 +44,19 @@ export function WorkoutInstancePlaythrough({
     [replaceNavState],
   );
 
+  const reloadWorkoutInstance = useCallback(async () => {
+    const newWorkoutInstance = workoutInstanceDenormalizedSchema.parse(
+      await connection.runRpc("get_workout_instance", {
+        _auth_id: connection.auth_id,
+        _id: workout.id,
+      }),
+    );
+    updatePlaythroughState((current: PlaythroughState) => ({
+      ...current,
+      workout: newWorkoutInstance,
+    }));
+  }, [connection, updatePlaythroughState, workout.id]);
+
   const { sortedEntries, entryIdToSortedEntryIdx } = useMemo(
     () => sortWorkoutInstanceDenormalized(workout),
     [workout],
@@ -328,6 +341,10 @@ export function WorkoutInstancePlaythrough({
     .filter((x) => !!x)
     .join("\n");
 
+  useEffect(() => {
+    reloadWorkoutInstance();
+  });
+
   return (
     <>
       {setQuantityModal}
@@ -376,6 +393,8 @@ export function WorkoutInstancePlaythrough({
         </button>
         <br />
         <button onClick={advancePhase}> Next exercise </button>
+        <br />
+        <button onClick={reloadWorkoutInstance}> Reload </button>
         <br />
         <br />
         <br />

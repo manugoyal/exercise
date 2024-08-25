@@ -11,6 +11,7 @@ import {
 import { NestedObject } from "./NestedObjectPicker";
 import {
   cartesianProduct,
+  displayTime,
   instanceNotesText,
   startedOnText,
   finishedOnText,
@@ -238,7 +239,7 @@ export function useWorkoutToNestedObject({
             }
             const totalTime = totalTimeSpentInWorkout(data.block_exercises);
             return totalTime
-              ? `Total time spent in workout: ${pluralize("seconds", totalTime, true)}`
+              ? `Total time spent in workout: ${displayTime({ seconds: totalTime })}`
               : "";
           })(),
           type === "workout_instance" && instanceNotesText(data.description),
@@ -301,7 +302,7 @@ export function useWorkoutToNestedObject({
                       `Exercise notes: ${instanceEntry.description}`,
                     instanceEntry?.started &&
                       instanceEntry?.finished &&
-                      `Completed in ${pluralize("seconds", (instanceEntry.finished.getTime() - instanceEntry.started.getTime()) / 1000 - (instanceEntry?.paused_time_s ?? 0), true)}`,
+                      `Completed in ${displayTime({ seconds: (instanceEntry.finished.getTime() - instanceEntry.started.getTime()) / 1000 - (instanceEntry?.paused_time_s ?? 0) })}`,
                   ]
                     .filter((x) => !!x)
                     .join("\n"),
