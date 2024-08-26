@@ -33,7 +33,10 @@ export function WorkoutInstancePlaythrough({
     (fn: (current: PlaythroughState) => PlaythroughState) => {
       replaceNavState((current: NavState) => {
         if (current.status !== "playthrough_workout_instance") {
-          throw new Error("Impossible");
+          console.warn(
+            "Cannot update playthrough state from non-playthrough state",
+          );
+          return current;
         }
         return {
           status: "playthrough_workout_instance",
@@ -342,8 +345,14 @@ export function WorkoutInstancePlaythrough({
     .join("\n");
 
   useEffect(() => {
-    reloadWorkoutInstance();
-  });
+    (async () => {
+      try {
+        await reloadWorkoutInstance();
+      } catch (e) {
+        console.error("Failed to reload workout instance\n", e);
+      }
+    })();
+  }, [reloadWorkoutInstance]);
 
   return (
     <>
