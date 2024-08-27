@@ -17,6 +17,7 @@ import {
   PlaythroughExerciseInitialStateEntry,
   getPlaythroughExerciseInitialState,
 } from "./playthroughTypes";
+import { CurrentWorkoutInstanceContext } from "./currentWorkoutInstance";
 import { Loading } from "./Loading";
 
 export function WorkoutInstanceView({
@@ -24,7 +25,10 @@ export function WorkoutInstanceView({
 }: {
   workoutInstanceId: string;
 }) {
-  const { pushNavState } = useContext(NavStateContext);
+  const { pushNavState, replaceNavState } = useContext(NavStateContext);
+  const { setCurrentWorkoutInstance } = useContext(
+    CurrentWorkoutInstanceContext,
+  );
   const connection = useContext(ConnectionContext);
 
   const [workoutInstance, setWorkoutInstance] = useState<
@@ -48,6 +52,10 @@ export function WorkoutInstanceView({
     }
     getWorkoutInstance();
   }, [connection, workoutInstance, workoutInstanceId]);
+
+  useEffect(() => {
+    setCurrentWorkoutInstance(workoutInstance);
+  }, [setCurrentWorkoutInstance, workoutInstance]);
 
   const { sortedEntries } = useMemo(
     (): SortedWorkoutInstanceDenormalized | SortedWorkoutInstanceUndefined =>
@@ -142,6 +150,7 @@ export function WorkoutInstanceView({
         _set_finished_to_null: true,
       }),
     );
+    setWorkoutInstance(newWorkoutInstance);
     pushNavState({
       status: "playthrough_workout_instance",
       data: {
@@ -171,6 +180,22 @@ export function WorkoutInstanceView({
     },
     [pushNavState, workoutInstance],
   );
+
+  const deleteWorkoutInstance = useCallback(async () => {
+    if (!workoutInstance) {
+      alert("Workout has not loaded");
+      return;
+    }
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this workout?",
+    );
+    if (!confirmed) return;
+    await connection.runRpc("delete_workout_instance", {
+      _auth_id: connection.auth_id,
+      _workout_instance_id: workoutInstance.id,
+    });
+    replaceNavState({ status: "post_login" });
+  }, [connection, replaceNavState, workoutInstance]);
 
   const canResume =
     workoutInstance && workoutInstance.started && !workoutInstance.finished;
@@ -209,6 +234,11 @@ export function WorkoutInstanceView({
           </>
         )}
         <button onClick={() => setWorkoutInstance(undefined)}> Reload </button>
+        <br />
+        <button onClick={() => deleteWorkoutInstance()}>
+          {" "}
+          Delete workout instance{" "}
+        </button>
         <br />
       </div>
     </>

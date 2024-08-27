@@ -11,13 +11,20 @@ import {
 import { useSetQuantityModal } from "./useSetQuantityModal";
 import { workoutInstanceDenormalizedSchema } from "./typespecs/denormalized_types";
 import { DEFAULT_TRANSITION_TIME_S } from "./constants";
+import { CurrentWorkoutInstanceContext } from "./currentWorkoutInstance";
 
 export function WorkoutInstancePlaythrough({
   playthroughState,
 }: {
   playthroughState: PlaythroughState;
 }) {
-  const { workout, workout_block_exercise_instance_id, phase, timerEntries } =
+  const { currentWorkoutInstance: workout, setCurrentWorkoutInstance } =
+    useContext(CurrentWorkoutInstanceContext);
+  if (!workout) {
+    throw new Error("Impossible");
+  }
+
+  const { workout_block_exercise_instance_id, phase, timerEntries } =
     playthroughState;
   if (timerEntries.length === 0) {
     throw new Error("timerEntries should not be empty");
@@ -54,11 +61,8 @@ export function WorkoutInstancePlaythrough({
         _id: workout.id,
       }),
     );
-    updatePlaythroughState((current: PlaythroughState) => ({
-      ...current,
-      workout: newWorkoutInstance,
-    }));
-  }, [connection, updatePlaythroughState, workout.id]);
+    setCurrentWorkoutInstance(newWorkoutInstance);
+  }, [connection, setCurrentWorkoutInstance, workout.id]);
 
   const { sortedEntries, entryIdToSortedEntryIdx } = useMemo(
     () => sortWorkoutInstanceDenormalized(workout),
@@ -171,9 +175,9 @@ export function WorkoutInstancePlaythrough({
       });
     } else {
       // Go straight to the next exercise.
-      updatePlaythroughState((current: PlaythroughState) =>
+      updatePlaythroughState(() =>
         getPlaythroughExerciseInitialState({
-          workout: current.workout,
+          workout: workout,
           entry: sortedEntries[entryIdx + 1],
         }),
       );
@@ -187,7 +191,7 @@ export function WorkoutInstancePlaythrough({
     sortedEntries,
     timerEntries,
     updatePlaythroughState,
-    workout.id,
+    workout,
   ]);
 
   const updateTimer = useCallback(
@@ -235,18 +239,15 @@ export function WorkoutInstancePlaythrough({
               [quantityKey]: quantityValue,
             }),
           );
-          updatePlaythroughState((current: PlaythroughState) => ({
-            ...current,
-            workout: newWorkoutInstance,
-          }));
+          setCurrentWorkoutInstance(newWorkoutInstance);
         },
       });
     },
     [
       connection,
       instance.id,
+      setCurrentWorkoutInstance,
       showSetQuantityModal,
-      updatePlaythroughState,
       updateTimer,
     ],
   );
@@ -285,15 +286,12 @@ export function WorkoutInstancePlaythrough({
         _description: description,
       }),
     );
-    updatePlaythroughState((current: PlaythroughState) => ({
-      ...current,
-      workout: newWorkoutInstance,
-    }));
+    setCurrentWorkoutInstance(newWorkoutInstance);
   }, [
     connection,
     instance.description,
     instance.id,
-    updatePlaythroughState,
+    setCurrentWorkoutInstance,
     updateTimer,
   ]);
 
@@ -343,16 +341,6 @@ export function WorkoutInstancePlaythrough({
   ]
     .filter((x) => !!x)
     .join("\n");
-
-  useEffect(() => {
-    (async () => {
-      try {
-        await reloadWorkoutInstance();
-      } catch (e) {
-        console.error("Failed to reload workout instance\n", e);
-      }
-    })();
-  }, [reloadWorkoutInstance]);
 
   return (
     <>

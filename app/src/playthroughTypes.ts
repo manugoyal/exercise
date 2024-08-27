@@ -4,7 +4,6 @@ import { isRecoverExercise } from "./util";
 export type PlaythroughPhaseState = "transition" | "play";
 export type PlaythroughTimerEntry = { type: "resume" | "pause"; time: Date };
 export type PlaythroughState = {
-  workout: WorkoutInstanceDenormalized;
   workout_block_exercise_instance_id: string;
   phase: PlaythroughPhaseState;
   timerEntries: PlaythroughTimerEntry[];
@@ -30,7 +29,6 @@ export function getPlaythroughExerciseInitialState({
     ? "play"
     : "transition";
   return {
-    workout,
     workout_block_exercise_instance_id: instance.id,
     phase,
     timerEntries: [{ type: "resume", time: new Date() }],

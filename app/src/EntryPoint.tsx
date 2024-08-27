@@ -1,7 +1,12 @@
 import { useCallback, useContext, useMemo, useState } from "react";
 
+import { WorkoutInstanceDenormalized } from "./typespecs/denormalized_types";
 import { ConnectionContext, useMakeConnection } from "./connection";
 import { NavState, NavStateContext, NavStateContextT } from "./navState";
+import {
+  CurrentWorkoutInstanceContextT,
+  CurrentWorkoutInstanceContext,
+} from "./currentWorkoutInstance";
 import { PastWorkoutInstancesPicker } from "./PastWorkoutInstancesPicker";
 import { PostLogin } from "./PostLogin";
 import { WorkoutCyclesPicker } from "./WorkoutCyclesPicker";
@@ -79,14 +84,29 @@ export function EntryPoint() {
     ],
   );
 
+  const [currentWorkoutInstance, setCurrentWorkoutInstance] = useState<
+    WorkoutInstanceDenormalized | undefined
+  >(undefined);
+  const currentWorkoutInstanceContext = useMemo(
+    (): CurrentWorkoutInstanceContextT => ({
+      currentWorkoutInstance,
+      setCurrentWorkoutInstance,
+    }),
+    [currentWorkoutInstance, setCurrentWorkoutInstance],
+  );
+
   if (connection === undefined) {
     return <dialog open>{loginForm}</dialog>;
   } else {
     return (
       <ConnectionContext.Provider value={connection}>
         <NavStateContext.Provider value={navStateContext}>
-          <EntryPointNav />
-          <BackToStartFooter />
+          <CurrentWorkoutInstanceContext.Provider
+            value={currentWorkoutInstanceContext}
+          >
+            <EntryPointNav />
+            <BackToStartFooter />
+          </CurrentWorkoutInstanceContext.Provider>
         </NavStateContext.Provider>
       </ConnectionContext.Provider>
     );
