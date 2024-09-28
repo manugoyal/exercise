@@ -14,3 +14,40 @@ button {
 body {
   padding: 10px 10px 10px 10px;
 }
+
+form input,
+form button {
+  margin-bottom: 2px;
+}
+
+#logo-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#logo-image {
+  width: 300px;
+  height: auto;
+  max-width: 100%;
+}
+
+#login-form-centered {
+  border: 2px solid black;
+  height: 100px;
+  width: 250px;
+  padding: 10px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#login-form-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#login-form-footer {
+  margin-top: 100px;
+}

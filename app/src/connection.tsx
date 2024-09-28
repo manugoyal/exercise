@@ -62,7 +62,7 @@ export function useMakeConnection() {
   }
 
   const loginForm = (
-    <form onSubmit={handleSubmit}>
+    <form id="login-form" onSubmit={handleSubmit}>
       <label>
         Username:
         <input

@@ -352,10 +352,11 @@ export function WorkoutInstancePlaythrough({
             instance.weight_lbs
               ? `${pluralize("lbs", instance.weight_lbs, true)}`
               : "",
-            blockExercise.limit_type === "reps" &&
-              `${pluralize("Rep", instance.limit_value, true)}`,
+            blockExercise.limit_type === "reps"
+              ? `${pluralize("Rep", instance.limit_value, true)}`
+              : `${pluralize("Second", instance.limit_value, true)} Total`,
             (blockExercise.limit_type === "time_s" || phase === "transition") &&
-              `${pluralize("Second", getTimeRemaining(), true)}`,
+              `${pluralize("Second", getTimeRemaining(), true)} Left`,
           ]
             .filter((x) => !!x)
             .join(" - ")}

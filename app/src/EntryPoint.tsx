@@ -96,7 +96,24 @@ export function EntryPoint() {
   );
 
   if (connection === undefined) {
-    return <dialog open>{loginForm}</dialog>;
+    return (
+      <>
+        <div id="logo-container">
+          <img
+            src={`${process.env.PUBLIC_URL}/logo.png`}
+            alt="logo"
+            id="logo-image"
+          />
+        </div>
+        <div id="login-form-container">
+          <div id="login-form-centered">{loginForm}</div>
+        </div>
+        <footer id="login-form-footer">
+          <h3> Join industry leaders </h3>
+          <p> This is the cleanest DOM {"I've"} seen since 1997 - Dan Lee </p>
+        </footer>
+      </>
+    );
   } else {
     return (
       <ConnectionContext.Provider value={connection}>
