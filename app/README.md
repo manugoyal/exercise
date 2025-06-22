@@ -1,46 +1,108 @@
-# Getting Started with Create React App
+# Exercise App - React Native Web
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+This app has been converted to use React Native Web for cross-platform compilation to both web and iOS targets.
 
-## Available Scripts
+## Setup
 
-In the project directory, you can run:
+### Prerequisites
 
-### `npm start`
+- Node.js (v16 or higher)
+- npm or yarn
+- For iOS development: Xcode and CocoaPods
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+### Installation
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+```bash
+npm install
+```
 
-### `npm test`
+## Development
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### Web Development
 
-### `npm run build`
+To start the development server for web:
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+```bash
+npm start
+```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+This will start the React development server and open the app in your browser at `http://localhost:3000`.
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+### Building for Web
 
-### `npm run eject`
+To create a production build for web:
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+```bash
+npm run build
+```
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+This creates an optimized build in the `build/` directory.
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+### iOS Development
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+For iOS development, you'll need to set up the iOS project:
 
-## Learn More
+1. Install CocoaPods dependencies:
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+```bash
+cd ios && pod install
+```
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+2. Open the Xcode project:
+
+```bash
+open ios/ExerciseApp.xcworkspace
+```
+
+3. Build and run in Xcode or use the React Native CLI:
+
+```bash
+npx react-native run-ios
+```
+
+## Project Structure
+
+- `src/` - Main application source code
+- `ios/` - iOS-specific native code and configuration
+- `public/` - Static assets for web
+- `build/` - Web build output (generated)
+
+## Key Changes Made
+
+1. **React Native Components**: All HTML elements have been replaced with React Native components:
+
+   - `<div>` → `<View>`
+   - `<button>` → `<TouchableOpacity>`
+   - `<p>`, `<span>` → `<Text>`
+   - `<dialog>` → `<Modal>`
+
+2. **Styling**: CSS has been replaced with React Native StyleSheet:
+
+   - CSS classes → StyleSheet objects
+   - CSS properties → React Native style properties
+
+3. **Platform Detection**: Web-specific APIs (like `window`, `navigator`) are conditionally used only when available.
+
+4. **Build Configuration**:
+   - Metro bundler for React Native
+   - React Native Web for web compilation
+   - Babel configuration for cross-platform support
+
+## Notes
+
+- The app uses React Native Web to automatically translate React Native components to web equivalents
+- Web-specific features like wake lock and unhandled rejection handling are preserved
+- The same codebase works for both web and iOS without platform-specific files
+- All styling is done through React Native StyleSheet for consistency across platforms
+
+## Troubleshooting
+
+### Web Build Issues
+
+- Make sure all React Native components are properly imported
+- Check that no HTML elements are being used directly
+
+### iOS Build Issues
+
+- Ensure CocoaPods is installed and dependencies are up to date
+- Check that Xcode is properly configured for React Native development

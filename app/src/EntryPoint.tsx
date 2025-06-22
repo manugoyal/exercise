@@ -1,4 +1,5 @@
 import { useCallback, useContext, useMemo, useState } from "react";
+import { View, Text, TouchableOpacity, StyleSheet, Modal } from "react-native";
 
 import { WorkoutInstanceDenormalized } from "./typespecs/denormalized_types";
 import { ConnectionContext, useMakeConnection } from "./connection";
@@ -16,6 +17,7 @@ import { WorkoutInstancePlaythrough } from "./WorkoutInstancePlaythrough";
 import { ExerciseHistoryView } from "./ExerciseHistoryView";
 import { Settings } from "./Settings";
 import { ImportExport } from "./ImportExport";
+import { globalStyles } from "./styles/globalStyles";
 
 export function EntryPoint() {
   const { connection, loginForm } = useMakeConnection();
@@ -96,7 +98,11 @@ export function EntryPoint() {
   );
 
   if (connection === undefined) {
-    return <dialog open>{loginForm}</dialog>;
+    return (
+      <Modal visible={true} animationType="slide" transparent={false}>
+        <View style={styles.modalContainer}>{loginForm}</View>
+      </Modal>
+    );
   } else {
     return (
       <ConnectionContext.Provider value={connection}>
@@ -149,20 +155,36 @@ function BackToStartFooter() {
     popNavState,
     reversePopNavState,
   } = useContext(NavStateContext);
+
   return (
-    <footer>
+    <View style={styles.footer}>
       {navStatePushStack.length > 1 ? (
-        <>
-          <button onClick={popNavState}> Go back </button>
-          <br />
-        </>
+        <TouchableOpacity style={globalStyles.button} onPress={popNavState}>
+          <Text style={globalStyles.buttonText}>Go back</Text>
+        </TouchableOpacity>
       ) : null}
       {navStatePopStack.length ? (
-        <>
-          <button onClick={reversePopNavState}> Go forward </button>
-          <br />
-        </>
+        <TouchableOpacity
+          style={globalStyles.button}
+          onPress={reversePopNavState}
+        >
+          <Text style={globalStyles.buttonText}>Go forward</Text>
+        </TouchableOpacity>
       ) : null}
-    </footer>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  modalContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#fff",
+  },
+  footer: {
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#ccc",
+  },
+});

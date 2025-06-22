@@ -30,4 +30,20 @@ export default [
       "react-hooks/exhaustive-deps": "error",
     },
   },
+  // Configuration for Node.js config files
+  {
+    files: [
+      "app/**/*.config.js",
+      "app/babel.config.js",
+      "app/metro.config.js",
+      "app/react-native.config.js",
+    ],
+    languageOptions: {
+      globals: globals.node,
+    },
+    rules: {
+      "@typescript-eslint/no-var-requires": "off",
+      "no-undef": "off",
+    },
+  },
 ];

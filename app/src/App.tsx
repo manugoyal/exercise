@@ -1,15 +1,18 @@
-import { useEffect, useState } from "react";
-import "./App.css";
+import { useState } from "react";
+import { View } from "react-native";
+import "./App.css"; // Import original CSS for web-specific styles
 
 import { EntryPoint } from "./EntryPoint";
 import { ErrorDisplay } from "./ErrorDisplay";
+import { globalStyles } from "./styles/globalStyles";
 
 let initializedUnhandledRejectionHandler = false;
 
 function App() {
   const [error, setError] = useState<unknown | undefined>(undefined);
 
-  if (!initializedUnhandledRejectionHandler) {
+  // Web-specific error handling
+  if (typeof window !== "undefined" && !initializedUnhandledRejectionHandler) {
     window.addEventListener("unhandledrejection", (event) => {
       event.preventDefault();
       setError(event.reason);
@@ -17,31 +20,14 @@ function App() {
     initializedUnhandledRejectionHandler = true;
   }
 
-  // Keep the screen awake while the app is open.
-  useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let wakeLock: any = null;
-    (async () => {
-      try {
-        if ("wakeLock" in navigator) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          wakeLock = await (navigator.wakeLock as any).request("screen");
-        }
-      } catch (e) {
-        console.warn("Failed to acquire wakeLock:\n", e);
-      }
-    })();
-    return () => {
-      if (wakeLock) {
-        wakeLock.release();
-      }
-    };
-  }, []);
-
   if (error) {
     return <ErrorDisplay error={error} />;
   } else {
-    return <EntryPoint />;
+    return (
+      <View style={globalStyles.container}>
+        <EntryPoint />
+      </View>
+    );
   }
 }
 
