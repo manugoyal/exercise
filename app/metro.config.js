@@ -1,8 +1,11 @@
-const { getDefaultConfig } = require("@react-native/metro-config");
+const { getDefaultConfig, mergeConfig } = require("@react-native/metro-config");
 
-const config = getDefaultConfig(__dirname);
+/**
+ * Metro configuration
+ * https://reactnative.dev/docs/metro
+ *
+ * @type {import('metro-config').MetroConfig}
+ */
+const config = {};
 
-// Add support for web
-config.resolver.platforms = ["ios", "android", "native", "web"];
-
-module.exports = config;
+module.exports = mergeConfig(getDefaultConfig(__dirname), config);

@@ -21,3 +21,34 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# iOS
+ios/Pods/
+ios/build/
+ios/*.xcworkspace/xcuserdata/
+ios/*.xcodeproj/xcuserdata/
+ios/*.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+ios/.xcode.env.local
+DerivedData/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+!default.pbxuser
+!default.mode1v3
+!default.mode2v3
+!default.perspectivev3
+*.moved-aside
+*.xccheckout
+*.xcscmblueprint
+
+# Bundle artifacts
+*.jsbundle
+
+# Xcode
+build/
+*.xcuserstate
+project.xcworkspace
+
+# CocoaPods
+ios/Pods/
